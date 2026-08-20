@@ -53,16 +53,10 @@ logging.getLogger("uvicorn.access").addHandler(q_handler)
 
 app = FastAPI(title="VANTA Panel", docs_url=None, redoc_url=None)
 
-# Bump this on every release so the dashboard can notify already-open sessions
-# that a new version is available / was just applied.
 PANEL_VERSION = "1.1.0"
-
-# GitHub repo checked for update notifications
 GITHUB_REPO = "VANTA-PROJECT/VANTA_PANEL"
 
 async def check_github_latest(force: bool = False) -> dict:
-    """Fetches the latest release tag from GitHub, caches in SQLite.
-    Only actually calls the API if force=True or no cached data exists."""
     conn = get_db()
     try:
         cur = conn.execute("SELECT latest_tag, latest_url, checked_at FROM github_cache WHERE id = 1")
@@ -111,7 +105,6 @@ async def check_github_latest(force: bool = False) -> dict:
     finally:
         conn.close()
 
-    # Create notification if a new version is detected
     if new_tag and new_tag != cached_tag and cached_tag:
         await create_notification(
             type="update",
@@ -124,8 +117,7 @@ async def check_github_latest(force: bool = False) -> dict:
 
 
 async def github_check_loop():
-    """Background task: check GitHub every 60 seconds for new releases."""
-    await asyncio.sleep(10)  # initial delay
+    await asyncio.sleep(10)
     while True:
         try:
             await check_github_latest(force=True)
@@ -133,8 +125,6 @@ async def github_check_loop():
             logger.warning(f"GitHub periodic check error: {e}")
         await asyncio.sleep(60)
 
-
-# ── Notifications ────────────────────────────────────────────────────────
 
 async def create_notification(type: str, title: str, message: str, link: str | None = None):
     conn = get_db()
@@ -170,15 +160,6 @@ async def get_notifications(limit: int = 50) -> list:
         conn.close()
 
 def _get_or_create_secret() -> str:
-    """Returns a stable secret key across restarts.
-
-    Previously this fell back to secrets.token_urlsafe(32) on every process
-    start when SECRET_KEY wasn't set, which changed the key each restart.
-    Since password hashes are salted with this secret, that made the stored
-    admin password hash (and every changed password) unverifiable after any
-    restart, effectively locking everyone out. We now persist a generated
-    secret to a local file so it stays constant across restarts.
-    """
     env_secret = os.environ.get("SECRET_KEY")
     if env_secret:
         return env_secret
@@ -232,13 +213,9 @@ notified_uids = set()
 SESSION_COOKIE = "vanta_session"
 SESSION_TTL = 60 * 60 * 24 * 7
 UNLIMITED_QUOTA_BYTES = 53687091200000
-# پورت همیشه ثابت روی 443 است — دیگه قابل تغییر توسط کاربر نیست
 DEFAULT_PORT = 443
 MIN_PORT, MAX_PORT = 1, 65535
 
-# نوع پروتکل (auth scheme) و ترابرد به‌صورت دو بُعد جدا از هم هستن؛ کاربر برای هر
-# کانفیگ هرکدوم رو مستقل از اون یکی انتخاب می‌کنه (مثلاً Trojan + XHTTP stream-up
-# یا VLESS + WebSocket و ...). مقدار ذخیره‌شده‌ی نهایی همیشه "{auth}-{transport}"ه.
 AUTH_TYPES = ("vless", "trojan")
 DEFAULT_AUTH = "vless"
 
@@ -249,44 +226,29 @@ PROTOCOLS = tuple(f"{a}-{t}" for a in AUTH_TYPES for t in TRANSPORTS)
 DEFAULT_PROTOCOL = f"{DEFAULT_AUTH}-{DEFAULT_TRANSPORT}"
 
 def split_protocol(protocol: str) -> tuple[str, str]:
-    """مقدار ذخیره‌شده‌ی protocol ("auth-transport") رو به دو بخش auth/transport می‌شکونه."""
     protocol = normalize_protocol(protocol)
     auth, transport = protocol.split("-", 1)
     return auth, transport
 
 def normalize_protocol(value: str | None) -> str:
-    """قدیم‌ترها مقدار protocol فقط ترابرد بود (مثلاً 'xhttp-packet-up' بدون
-    پیشوند auth) چون auth همیشه vless بود. این تابع مقادیر قدیمی رو به فرمت
-    جدید 'auth-transport' تبدیل می‌کنه تا کانفیگ‌های قبلی خراب نشن."""
     value = (value or "").strip().lower()
     if value in PROTOCOLS:
         return value
-    if value in TRANSPORTS:  # legacy value با auth ضمنی vless
+    if value in TRANSPORTS:
         return f"vless-{value}"
     return DEFAULT_PROTOCOL
 
-# Fingerprint (uTLS) های قابل انتخاب برای هر کانفیگ — مستقل برای هر پروتکل انتخاب می‌شه
 FINGERPRINTS = ("chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random", "randomized")
 DEFAULT_FINGERPRINT = "chrome"
 
-# لیست بسته‌ی ALPNهای قابل‌انتخاب (دیگه فیلد آزاد نیست) — مستقل برای هر پروتکل انتخاب می‌شه
 ALPN_OPTIONS = ("h3", "h2", "http/1.1", "h3,h2,http/1.1", "h3,h2", "h2,http/1.1")
 
-# پیش‌فرض ALPN بر اساس نوع ترابرد، وقتی کاربر مقدار انتخاب نکرده (auth روی این تاثیری نداره)
 DEFAULT_ALPN_BY_PROTOCOL = {}
 for _auth in AUTH_TYPES:
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-ws"] = "http/1.1"
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-xhttp-packet-up"] = "h2,http/1.1"
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-xhttp-stream-up"] = "h2,http/1.1"
 del _auth
-
-# ═══════════════════ ساختار «variants» — هر لینک می‌تونه هم‌زمان هم VLESS هم Trojan ═══════════════════
-# هر لینک به‌جای یک protocol واحد، یک variant مستقل برای هر auth type داره:
-#   link["variants"] = {
-#       "vless":  {"enabled": bool, "transport": ..., "fingerprint": ..., "alpn": ...},
-#       "trojan": {"enabled": bool, "transport": ..., "fingerprint": ..., "alpn": ...},
-#   }
-# حداقل یکی از دو تا باید enabled باشه.
 
 def default_variants() -> dict:
     return {
@@ -311,11 +273,10 @@ def sanitize_variants(variants: dict | None) -> dict:
     variants = variants or {}
     result = {auth: sanitize_variant(variants.get(auth), auth) for auth in AUTH_TYPES}
     if not any(result[a]["enabled"] for a in AUTH_TYPES):
-        result["vless"]["enabled"] = True  # حداقل یکی باید فعال بمونه
+        result["vless"]["enabled"] = True
     return result
 
 def variants_from_legacy(protocol: str, fingerprint: str, alpn: str) -> dict:
-    """کانفیگ‌های قدیمی که فقط یک protocol/fingerprint/alpn ستونی داشتن رو به فرمت جدید تبدیل می‌کنه."""
     auth, transport = split_protocol(protocol)
     variants = default_variants()
     for a in AUTH_TYPES:
@@ -328,7 +289,6 @@ def variants_from_legacy(protocol: str, fingerprint: str, alpn: str) -> dict:
     return variants
 
 def variants_to_legacy(variants: dict) -> tuple[str, str, str]:
-    """برای پرشدن ستون‌های قدیمی protocol/fingerprint/alpn (صرفاً برای سازگاری با ابزارهای بیرونی)."""
     for auth in AUTH_TYPES:
         v = (variants or {}).get(auth, {})
         if v.get("enabled"):
@@ -336,9 +296,6 @@ def variants_to_legacy(variants: dict) -> tuple[str, str, str]:
     return DEFAULT_PROTOCOL, DEFAULT_FINGERPRINT, ""
 
 def variants_from_body(body: dict, base: dict | None = None) -> dict:
-    """بدنه‌ی JSON درخواست (فیلدهای vless_enabled/vless_transport/... و trojan_*) رو
-    به ساختار variants تبدیل می‌کنه. base مقادیر پیش‌فرض/موجود رو برای فیلدهایی که
-    توی body نیومدن فراهم می‌کنه (برای PATCH جزئی)."""
     base = base or default_variants()
     result = {}
     for auth in AUTH_TYPES:
@@ -557,8 +514,6 @@ def build_main_keyboard():
     )
     return kb
 
-# ── SQLite Database ──────────────────────────────────────────────────────
-
 def get_db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -616,7 +571,6 @@ def init_db():
         );
     """)
     conn.commit()
-    # Migrate older DBs created before protocol/fingerprint/alpn/port existed
     existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(links)").fetchall()}
     for col, ddl in (
         ("protocol", "ALTER TABLE links ADD COLUMN protocol TEXT DEFAULT 'vless-ws'"),
@@ -628,7 +582,6 @@ def init_db():
         if col not in existing_cols:
             conn.execute(ddl)
     conn.commit()
-    # Ensure default auth row
     cur = conn.execute("SELECT password_hash FROM auth WHERE id = 1")
     row = cur.fetchone()
     if row is None:
@@ -647,12 +600,10 @@ def migrate_json_to_sqlite():
     try:
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-        # Migrate auth
         pw = data.get("auth_hash")
         if pw:
             conn.execute("INSERT OR REPLACE INTO auth (id, password_hash) VALUES (1, ?)", (pw,))
             AUTH["password_hash"] = pw
-        # Migrate links
         links = data.get("links", {})
         for uid, link in links.items():
             variants = variants_from_legacy(link.get("protocol", DEFAULT_PROTOCOL), link.get("fingerprint", DEFAULT_FINGERPRINT), link.get("alpn", ""))
@@ -667,20 +618,17 @@ def migrate_json_to_sqlite():
                   json.dumps(variants)))
             LINKS[uid] = dict(link)
             LINKS[uid]["variants"] = variants
-        # Migrate addresses
         addresses = data.get("custom_addresses", [])
         CUSTOM_ADDRESSES.clear()
         for addr in addresses:
             conn.execute("INSERT OR IGNORE INTO custom_addresses (address) VALUES (?)", (addr,))
             CUSTOM_ADDRESSES.append(addr)
-        # Migrate settings
         for key in ("telegram_token", "telegram_admin_id", "bot_lang"):
             val = data.get(key)
             if val:
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(val)))
                 CONFIG[key] = val
         conn.commit()
-        # Backup and remove old JSON
         os.rename(json_file, json_file + ".bak")
         logger.info(f"Migrated from {json_file} to SQLite database.")
     except Exception as e:
@@ -692,9 +640,7 @@ async def save_db():
     conn = get_db()
     try:
         async with DB_LOCK:
-            # Save auth
             conn.execute("INSERT OR REPLACE INTO auth (id, password_hash) VALUES (1, ?)", (AUTH["password_hash"],))
-            # Save links
             async with LINKS_LOCK:
                 for uid, link in list(LINKS.items()):
                     variants = sanitize_variants(link.get("variants"))
@@ -707,12 +653,10 @@ async def save_db():
                           1 if link.get("active", True) else 0, link.get("expires_at"),
                           legacy_protocol, legacy_fp, legacy_alpn, link.get("port", DEFAULT_PORT),
                           json.dumps(variants)))
-            # Save addresses
             async with CUSTOM_ADDRESSES_LOCK:
                 conn.execute("DELETE FROM custom_addresses")
                 for addr in CUSTOM_ADDRESSES:
                     conn.execute("INSERT INTO custom_addresses (address) VALUES (?)", (addr,))
-            # Save settings
             for key in ("telegram_token", "telegram_admin_id", "bot_lang", "railway_token", "notify_connections"):
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, CONFIG.get(key, "")))
             conn.commit()
@@ -725,12 +669,10 @@ def load_db():
     global CUSTOM_ADDRESSES, LINKS
     conn = get_db()
     try:
-        # Load auth
         cur = conn.execute("SELECT password_hash FROM auth WHERE id = 1")
         row = cur.fetchone()
         if row:
             AUTH["password_hash"] = row["password_hash"]
-        # Load links
         LINKS.clear()
         cur = conn.execute("SELECT * FROM links")
         for row in cur.fetchall():
@@ -740,8 +682,7 @@ def load_db():
                 try:
                     variants = sanitize_variants(json.loads(variants_raw))
                 except Exception:
-                    variants = None
-            if variants is None:
+                    variants = None            if variants is None:
                 variants = variants_from_legacy(row["protocol"], row["fingerprint"], row["alpn"])
             LINKS[row["uuid"]] = {
                 "label": row["label"],
@@ -754,19 +695,15 @@ def load_db():
                 "variants": variants,
                 "port": row["port"] if row["port"] else DEFAULT_PORT,
             }
-        # Load addresses
         CUSTOM_ADDRESSES.clear()
         cur = conn.execute("SELECT address FROM custom_addresses")
         rows = cur.fetchall()
         if rows:
             CUSTOM_ADDRESSES.extend(row["address"] for row in rows)
-        # پاک‌سازی یک‌بارمصرف: آدرس پیش‌فرض قدیمی رو دیگه نمی‌خوایم، حتی اگه از قبل
-        # تو دیتابیس ذخیره شده باشه.
         if "www.speedtest.net" in CUSTOM_ADDRESSES:
             CUSTOM_ADDRESSES.remove("www.speedtest.net")
             conn.execute("DELETE FROM custom_addresses WHERE address = ?", ("www.speedtest.net",))
             conn.commit()
-        # Load settings
         cur = conn.execute("SELECT key, value FROM settings")
         for row in cur.fetchall():
             CONFIG[row["key"]] = row["value"]
@@ -878,15 +815,6 @@ def generate_vless_link(
     fingerprint: str | None = None,
     alpn: str | None = None,
 ) -> str:
-    """می‌سازد share-link متناسب با auth (vless/trojan) و ترابرد انتخاب‌شده
-    (ws یا یکی از دو مد XHTTP: packet-up / stream-up). fingerprint/alpn در
-    صورت ندادن، از پیش‌فرض‌های خودِ پروتکل استفاده می‌کنن. پورت همیشه 443 است
-    و پارامتر port دیگه در نظر گرفته نمی‌شه.
-
-    نکته‌ی مهم: برای هر دو auth، همون uid مخفیِ توی مسیر URL (/ws/{uid} یا
-    /xhttp/{mode}/{uid}) واقعاً احراز هویت می‌کنه، نه UUID داخل هدر VLESS یا
-    پسورد داخل هدر Trojan (که هیچ‌کدوم سمت سرور چک نمی‌شن) — پس برای Trojan هم
-    از همون uid به‌عنوان password توی لینک استفاده می‌کنیم."""
     domain = get_domain()
     addr = address if address else domain
 
@@ -901,15 +829,13 @@ def generate_vless_link(
     if alpn_val not in ALPN_OPTIONS:
         alpn_val = DEFAULT_ALPN_BY_PROTOCOL.get(protocol, "http/1.1")
 
-    # پورت ثابت و همیشه 443 — هر مقدار ورودی نادیده گرفته می‌شه
     use_port = DEFAULT_PORT
 
     if transport == "ws":
         path = f"/ws/{auth}/{uuid}?ed=2048"
         base_params = {"security": "tls", "type": "ws", "host": domain, "path": path, "sni": domain, "fp": fp, "alpn": alpn_val}
     else:
-        # xhttp-packet-up / xhttp-stream-up
-        mode = transport.replace("xhttp-", "")  # packet-up | stream-up
+        mode = transport.replace("xhttp-", "")
         path = f"/xhttp/{auth}/{mode}/{uuid}"
         base_params = {"security": "tls", "type": "xhttp", "mode": mode, "host": domain, "path": path, "sni": domain, "fp": fp, "alpn": alpn_val}
 
@@ -917,8 +843,6 @@ def generate_vless_link(
         params = {"encryption": "none", **base_params}
         scheme = "vless"
     else:
-        # trojan:// user-info بخش، password هست نه uuid؛ چون سمت سرور چک نمی‌شه از
-        # همون uid استفاده می‌کنیم تا برای کاربر هم مشخص و یکتا بمونه.
         params = base_params
         scheme = "trojan"
 
@@ -927,8 +851,6 @@ def generate_vless_link(
 
 
 def link_for_variant(link: dict, uid: str, auth: str, address: str = None) -> str | None:
-    """اگه variant مربوط به این auth (vless/trojan) روی این لینک فعال باشه، share-link
-    مربوطه رو می‌سازه؛ وگرنه None برمی‌گردونه."""
     variant = sanitize_variants(link.get("variants")).get(auth)
     if not variant or not variant.get("enabled"):
         return None
@@ -943,7 +865,6 @@ def link_for_variant(link: dict, uid: str, auth: str, address: str = None) -> st
     )
 
 def links_for_all_variants(link: dict, uid: str, address: str = None) -> list[str]:
-    """برای هر auth فعال روی این لینک، یک share-link می‌سازه (ممکنه ۱ یا ۲ تا خروجی بده)."""
     out = []
     for auth in AUTH_TYPES:
         share_link = link_for_variant(link, uid, auth, address=address)
@@ -1007,11 +928,6 @@ async def find_uid_by_label(label: str) -> str | None:
 _UUID_RE = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
 
 def migrate_legacy_uuids():
-    """One-time migration: older versions of this panel used the link's label
-    as its VLESS uuid (e.g. 'Default', 'Ali'). Modern clients (Hiddify, Clash
-    Meta, and other sing-box/Xray-based apps) reject non-UUID ids outright.
-    This rewrites any such legacy link to use a real UUID, keeping its label,
-    quota, usage, and expiry intact."""
     conn = get_db()
     try:
         changed = False
@@ -1243,8 +1159,6 @@ def _notify_connections_enabled() -> bool:
     return str(CONFIG.get("notify_connections", "0")) in ("1", "true", "True")
 
 async def _log_connection_event(event: str, label: str, uid: str, ip: str, extra: str = ""):
-    """Logs every client connect/disconnect and, if enabled in Settings,
-    forwards the same event to the admin via Telegram."""
     verb = "Connected" if event == "connect" else "Disconnected"
     suffix = f" - {extra}" if extra else ""
     logger.info(f"{verb}: link='{label}' ({uid}) from {ip}{suffix}")
@@ -1499,9 +1413,6 @@ async def health():
 
 @app.get("/api/ping-check")
 async def ping_check(host: str, port: int = 443):
-    """Measures real TCP connect latency to a config's host from the panel's
-    own server/network (not the visitor's browser), so results reflect the
-    server's actual reachability instead of being limited by browser CORS."""
     if port < 1 or port > 65535:
         return {"host": host, "port": port, "ms": None, "reachable": False}
     start = time.time()
@@ -1592,9 +1503,6 @@ async def get_settings(_=Depends(require_auth)):
 @app.post("/api/settings")
 async def update_settings(request: Request, _=Depends(require_auth)):
     body = await request.json()
-    # Only touch fields the caller actually sent, so saving from one settings
-    # form (e.g. just the Telegram fields) doesn't wipe out fields that
-    # belong to another form (e.g. the Railway token).
     if "telegram_token" in body:
         CONFIG["telegram_token"] = (body.get("telegram_token") or "").strip()
     if "telegram_admin_id" in body:
@@ -1606,8 +1514,6 @@ async def update_settings(request: Request, _=Depends(require_auth)):
     await save_db()
     await restart_telegram_bot()
     return {"ok": True}
-
-# ── Railway / Permanent Database ──────────────────────────────────────────
 
 RAILWAY_API_URL = "https://backboard.railway.com/graphql/v2"
 
@@ -1638,7 +1544,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
     projects = []
     seen_ids = set()
 
-    # Personal-account-scoped projects (not inside any workspace)
     personal_data = await _railway_graphql(token, """
         query {
             projects {
@@ -1652,8 +1557,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
             seen_ids.add(node["id"])
             projects.append({"id": node["id"], "name": node.get("name", "Unnamed")})
 
-    # Most Railway accounts now keep their projects inside a workspace, so we
-    # also need to enumerate workspaces and fetch each one's projects.
     try:
         ws_data = await _railway_graphql(token, """
             query {
@@ -1662,8 +1565,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
         """)
         workspaces = (ws_data.get("me") or {}).get("workspaces") or []
     except HTTPException:
-        # A workspace- or project-scoped token can't call `me`; that's fine,
-        # we just skip workspace enumeration and keep whatever we already have.
         workspaces = []
 
     for ws in workspaces:
@@ -1689,16 +1590,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
     return {"projects": projects}
 
 async def _railway_resolve_service(token: str, project_id: str) -> dict:
-    """Figures out which service in the project the volume should attach to.
-
-    Railway limits each service to a single volume, and there's no reliable
-    way to guess which of a project's services is "the panel" without extra
-    input from the user - except that when this app is itself deployed on
-    Railway, Railway automatically injects RAILWAY_SERVICE_ID into its own
-    environment. We use that for a fully automatic match, and fall back to
-    "only one service in the project" when it's not available or doesn't
-    belong to this project.
-    """
     data = await _railway_graphql(token, """
         query ($id: String!) {
             project(id: $id) {
@@ -1835,7 +1726,6 @@ async def create_link(request: Request, _=Depends(require_auth)):
             pass
 
     variants = variants_from_body(body)
-    # پورت همیشه 443 است؛ هر مقدار دیگه‌ای که فرانت بفرسته نادیده گرفته می‌شه
     port = DEFAULT_PORT
 
     uid = str(uuid.uuid4())
@@ -1908,7 +1798,6 @@ async def toggle_link(uid: str, request: Request, _=Depends(require_auth)):
                         "trojan_enabled", "trojan_transport", "trojan_fingerprint", "trojan_alpn")
         if any(k in body for k in variant_keys):
             LINKS[uid]["variants"] = variants_from_body(body, base=sanitize_variants(LINKS[uid].get("variants")))
-        # پورت همیشه 443 است — دیگه از ورودی کاربر خونده نمی‌شه
         LINKS[uid]["port"] = DEFAULT_PORT
         if "days_valid" in body:
             try:
@@ -1968,8 +1857,6 @@ async def delete_address(index: int, _=Depends(require_auth)):
     await save_db()
     return {"ok": True, "addresses": list(CUSTOM_ADDRESSES)}
 
-# فایل‌های آماده‌ی IP که کنار main.py قرار می‌گیرن و با یک کلیک، همه‌شون یکجا
-# (بدون رفت‌وبرگشت جدا برای هر آی‌پی) به لیست Clean IP اضافه می‌شن.
 IP_IMPORT_FILES = {
     "railway": "railway_ips.txt",
 }
@@ -1989,8 +1876,6 @@ def _parse_ip_file(path: str) -> list[str]:
 
 @app.post("/api/addresses/import/{source}")
 async def import_addresses(source: str, _=Depends(require_auth)):
-    """همه‌ی آی‌پی‌های داخل railway_ips.txt رو یکجا (بدون تاخیر
-    برای هرکدوم جدا) به لیست Clean IP اضافه می‌کنه."""
     filename = IP_IMPORT_FILES.get(source)
     if not filename:
         raise HTTPException(status_code=404, detail="unknown import source")
@@ -2008,8 +1893,6 @@ async def import_addresses(source: str, _=Depends(require_auth)):
                 added += 1
     await save_db()
     return {"ok": True, "added": added, "total_in_file": len(ips), "addresses": list(CUSTOM_ADDRESSES)}
-
-# ── Notifications API ────────────────────────────────────────────────────
 
 @app.get("/api/notifications")
 async def api_get_notifications(_=Depends(require_auth)):
@@ -2101,7 +1984,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         expiry_str = f"{days}d {hours}h"
         expiry_days = days
 
-    # Parse expiry date string for display
     expiry_date_str = ""
     if expires_at_str:
         exp_dt = parse_expires_at(expires_at_str)
@@ -2112,24 +1994,14 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     for addr in addresses:
         configs.extend(links_for_all_variants(link, uid, address=addr))
 
-    # Sub URL for QR
     sub_url = f"https://{get_domain()}/sub/{uid}"
     configs_json = json.dumps(configs)
 
     is_active = link["active"]
     status_text = "Active" if is_active else "Inactive"
     
-    # VANTA Theme Colors (Dark Purple/Indigo with Gold Accent)
     ring_color1 = "#818CF8"
     ring_color2 = "#6366F1"
-    gold_color = "#FFD700"
-    gold_dim = "rgba(255,215,0,0.12)"
-    gold_border = "rgba(255,215,0,0.12)"
-    gold_border2 = "rgba(255,215,0,0.25)"
-    gold_glow = "0 0 20px rgba(255,215,0,0.3)"
-    bg_gradient1 = "radial-gradient(ellipse 60% 40% at 50% -5%,rgba(99,102,241,0.15),transparent 60%)"
-    bg_gradient2 = "radial-gradient(ellipse 40% 30% at 80% 80%,rgba(255,215,0,0.05),transparent 50%)"
-    grid_color = "rgba(255,215,0,0.03)"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -2153,7 +2025,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         html,body{{height:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text)}}
         body{{padding:0;display:flex;flex-direction:column;align-items:center;min-height:100vh;overflow-x:hidden}}
 
-        /* Animated background - VANTA Dark Purple/Indigo */
         .bg-glow{{position:fixed;inset:0;z-index:0;pointer-events:none;
             background:radial-gradient(ellipse 60% 40% at 50% -5%,rgba(99,102,241,0.15),transparent 60%),
                        radial-gradient(ellipse 40% 30% at 80% 80%,rgba(255,215,0,0.05),transparent 50%);}}
@@ -2161,7 +2032,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             background-image:linear-gradient(rgba(255,215,0,0.03) 1px,transparent 1px),
                              linear-gradient(90deg,rgba(255,215,0,0.03) 1px,transparent 1px);
             background-size:48px 48px;}}
-        /* Shooting stars with gold */
         .shooting-stars{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
         .shooting-stars .star{{position:absolute;width:110px;height:1px;
             background:linear-gradient(90deg,transparent,rgba(255,215,0,0.55));
@@ -2185,7 +2055,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         @media (prefers-reduced-motion: reduce){{
             .shooting-stars{{display:none}}
         }}
-        /* Starfield */
         .starfield{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
         .starfield .s{{position:absolute;border-radius:50%;background:#fff;
             animation-name:twinkle;animation-timing-function:ease-in-out;animation-iteration-count:infinite}}
@@ -2194,10 +2063,8 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             .starfield .s{{animation:none;opacity:.4}}
         }}
 
-
         .container{{width:100%;max-width:420px;padding:20px 16px 40px;position:relative;z-index:1}}
 
-        /* Header */
         .header{{text-align:center;padding:24px 0 20px}}
         .header-logo{{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}}
         .header-title{{font-size:22px;font-weight:900;letter-spacing:3px;
@@ -2205,7 +2072,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             -webkit-background-clip:text;-webkit-text-fill-color:transparent}}
         .header-sub{{font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase}}
 
-        /* Usage ring card */
         .ring-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:28px 24px;margin-bottom:14px;text-align:center;
             box-shadow:0 4px 24px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,215,0,0.08)}}
@@ -2235,7 +2101,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .info-box-val.gold{{color:var(--gold)}}
         .info-box-sub{{font-size:10px;color:var(--text3);margin-top:1px}}
 
-        /* QR card */
         .qr-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:24px;margin-bottom:14px;text-align:center;
             box-shadow:0 4px 24px rgba(0,0,0,0.4)}}
@@ -2254,7 +2119,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             box-shadow:0 0 20px rgba(255,215,0,0.25);transition:all .2s}}
         .copy-sub-btn:hover{{filter:brightness(1.1);box-shadow:0 0 30px rgba(255,215,0,0.4)}}
 
-        /* Platform chips */
         .section-label{{font-size:9px;font-weight:800;letter-spacing:2px;color:var(--text3);
             text-transform:uppercase;margin:20px 0 10px}}
         .platform-chips{{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}}
@@ -2263,7 +2127,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}}
         .chip:hover,.chip.active{{background:var(--gold-dim);border-color:var(--border2);color:var(--gold)}}
 
-        /* App cards */
         .apps-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}}
         .app-card{{background:var(--surface2);border:1px solid var(--border);border-radius:14px;
             padding:14px;cursor:pointer;transition:all .2s;text-decoration:none;display:block}}
@@ -2274,7 +2137,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .app-name{{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}}
         .app-action{{font-size:10.5px;color:var(--text3)}}
 
-        /* Config list */
         .configs-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:18px;margin-bottom:14px}}
         .configs-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}}
@@ -2301,7 +2163,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             cursor:pointer;transition:all .2s;font-family:inherit}}
         .btn-qr:hover{{background:rgba(167,139,250,0.15)}}
 
-        /* Ping all btn */
         .ping-btn{{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(74,222,128,0.2);
             background:rgba(74,222,128,0.08);color:var(--green);font-size:14px;font-weight:700;
             cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
@@ -2309,7 +2170,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .ping-btn:hover{{background:rgba(74,222,128,0.15);box-shadow:0 0 20px rgba(74,222,128,0.1)}}
         .ping-btn:disabled{{opacity:0.6;cursor:wait}}
 
-        /* QR modal */
         .mo{{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;
             align-items:center;justify-content:center;backdrop-filter:blur(8px)}}
         .mo.show{{display:flex}}
@@ -2322,7 +2182,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}}
         .mo-title{{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:4px}}
 
-        /* Toast */
         .toast{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);
             background:var(--bg2);color:var(--gold);border:1px solid var(--border2);
             border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;
@@ -2330,7 +2189,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             box-shadow:var(--gold-glow)}}
         .toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
 
-        /* VANTA footer links */
         .footer-links{{display:flex;justify-content:center;gap:16px;padding:20px 0 10px}}
         .footer-link{{display:flex;align-items:center;gap:5px;color:var(--text3);
             font-size:11px;font-weight:600;text-decoration:none;transition:color .2s}}
@@ -2347,7 +2205,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 <div class="container">
 
-    <!-- Header -->
     <div class="header">
         <div class="header-logo">
             <svg width="28" height="24" viewBox="0 0 84 68" fill="none">
@@ -2362,7 +2219,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div class="header-sub">{link['label']} · Connection Status</div>
     </div>
 
-    <!-- Usage Ring Card -->
     <div class="ring-card">
         <div class="ring-wrap">
             <svg class="ring-svg" viewBox="0 0 160 160">
@@ -2399,7 +2255,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </div>
     </div>
 
-    <!-- QR Code Card -->
     <div class="qr-card">
         <div class="qr-label">Scan to Add</div>
         <div class="qr-wrap">
@@ -2413,7 +2268,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </button>
     </div>
 
-    <!-- Easy Import Section -->
     <div class="section-label">Easy Import</div>
     <div class="platform-chips" id="platform-chips">
         <div class="chip active" onclick="setPlatform('Android',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" style="vertical-align:-2px;margin-right:3px"><path d="M7.2 8h9.6a5 5 0 0 0-2-3.5l1-1.7a.35.35 0 0 0-.6-.35l-1.05 1.8A5.6 5.6 0 0 0 12 3.7c-.78 0-1.5.15-2.15.4L8.8 2.3a.35.35 0 0 0-.6.35l1 1.7A5 5 0 0 0 7.2 8zm2.55-1.6a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6zm4.5 0a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6zM6.5 9.2h11v8.3a1 1 0 0 1-1 1h-1.2v2.8a1.3 1.3 0 0 1-2.6 0v-2.8h-1.4v2.8a1.3 1.3 0 0 1-2.6 0v-2.8H7.5a1 1 0 0 1-1-1V9.2zM4 9.2a1.3 1.3 0 0 1 1.3 1.3v4.8a1.3 1.3 0 0 1-2.6 0v-4.8A1.3 1.3 0 0 1 4 9.2zm16 0a1.3 1.3 0 0 1 1.3 1.3v4.8a1.3 1.3 0 0 1-2.6 0v-4.8A1.3 1.3 0 0 1 20 9.2z"/></svg> Android</div>
@@ -2427,7 +2281,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
     <div id="apps-container" class="apps-grid"></div>
 
-    <!-- Configs -->
     <div class="configs-card">
         <div class="configs-header">
             <div class="configs-title">CONFIGS</div>
@@ -2437,7 +2290,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div id="config-list"></div>
     </div>
 
-    <!-- Footer links -->
     <div class="footer-links">
         <a href="https://t.me/Vantahub1792" target="_blank" class="footer-link vanta">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
@@ -2455,7 +2307,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 </div>
 
-<!-- QR Modal -->
 <div class="mo" id="qr-modal" onclick="if(event.target===this)this.classList.remove('show')">
     <div class="mo-box">
         <button class="mo-close" onclick="document.getElementById('qr-modal').classList.remove('show')">✕</button>
@@ -2480,15 +2331,9 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }}
         sf.innerHTML=h;
     }})();
-    // Hiddify's own URL Scheme spec is: hiddify://import/<sublink>#<name>
-    // The #name fragment is what Hiddify shows as the profile name before
-    // it even fetches the sublink, and is used as a fallback if the
-    // content's own #profile-title header is missing or fails to parse.
     const hiddifyProfileName = encodeURIComponent("VANTA-{link['label']}");
     const hiddifyImportUrl = "hiddify://import/" + subUrl + "#" + hiddifyProfileName;
 
-    // Returns URL to the PNG icon for the given app name.
-    // Falls back to SVG initials if the PNG file does not exist.
     function appIcon(name, bg) {{
         const encoded = encodeURIComponent(name) + '.png';
         return '/client/' + encoded;
@@ -2561,10 +2406,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         `).join('');
     }}
 
-    // Tries to open an app via custom URL scheme. If the app doesn't take over
-    // the page within a short window (meaning it isn't installed or the scheme
-    // didn't register), tries a fallback scheme, and if that also fails,
-    // copies the subscription link so the user can paste it manually.
     function tryOpenScheme(url, onFail) {{
         let didHide = false;
         const onVisibilityChange = () => {{ if (document.hidden) didHide = true; }};
@@ -2621,7 +2462,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }});
     }}
 
-    // از خودِ رشته‌ی share-link (vless:// یا trojan://) نوع پروتکل/ترابرد/امنیت واقعی رو تشخیص می‌ده
     function configBadge(cfg) {{
         try {{
             const scheme = cfg.split('://')[0].toUpperCase();
@@ -2640,7 +2480,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }}
     }}
 
-    // Render configs
     function renderConfigs() {{
         const list = document.getElementById('config-list');
         document.getElementById('configs-count').textContent = configs.length + ' config' + (configs.length !== 1 ? 's' : '');
@@ -2686,15 +2525,11 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         a.click();
     }}
 
-    // Extracts host:port from a vless:// config link
     function parseHostPort(cfg) {{
         const m = cfg.match(/@([^:/?#]+):(\\d+)/);
         return m ? {{host: m[1], port: m[2]}} : null;
     }}
 
-    // Asks the panel's own server to test connectivity to a config's host,
-    // so the ping result reflects the server's real network path (and isn't
-    // limited/blocked by the visitor's browser CORS rules).
     async function pingHost(host, port) {{
         try {{
             const r = await fetch('/api/ping-check?host=' + encodeURIComponent(host) + '&port=' + encodeURIComponent(port));
@@ -2771,9 +2606,6 @@ def generate_subscription_content(link: dict, uid: str, addresses: list[str]) ->
 
 
 def generate_singbox_config(link: dict, uid: str, addresses: list[str]) -> str:
-    """Hiddify's engine is sing-box, so give it sing-box's own native
-    outbound JSON instead of the generic base64 vless list - removes any
-    dependency on Hiddify's vless://-URL parser entirely."""
     domain = get_domain()
 
     def _vless_outbound(tag: str, server: str, port: int = DEFAULT_PORT) -> dict:
@@ -2838,8 +2670,6 @@ def generate_clash_config(link: dict, uid: str, addresses: list[str]) -> str:
     variants = sanitize_variants(link.get("variants"))
 
     def _proxy_entry(auth: str, fp: str, name: str, server: str, port: int = DEFAULT_PORT) -> str:
-        # نکته: این خروجی کلش فقط ترابرد WS رو پوشش می‌ده؛ برای لینک‌های XHTTP از
-        # همون لینک share (vless:// یا trojan://) استفاده کن.
         cred_line = f'    uuid: {uid}\n' if auth == "vless" else f'    password: {uid}\n'
         return (
             f'  - name: "{name}"\n'
@@ -2856,7 +2686,6 @@ def generate_clash_config(link: dict, uid: str, addresses: list[str]) -> str:
             f'      Host: {domain}\n'
         )
 
-    # فقط auth هایی که فعالن و ترابردشون ws هست رو کلش می‌سازیم (محدودیت خودِ این export)
     active_auths = [a for a in AUTH_TYPES if variants[a]["enabled"] and variants[a]["transport"] == "ws"]
 
     proxies = []
@@ -2935,14 +2764,6 @@ async def subscription_endpoint(uid: str, request: Request):
     ua = request.headers.get("user-agent", "").lower()
     accept = request.headers.get("accept", "").lower()
 
-    # Many VPN client apps (Hiddify, NapsternetV, v2rayNG, sing-box front-ends,
-    # etc.) use HTTP libraries (Dio/OkHttp/etc.) that sometimes send a
-    # browser-like User-Agent and/or a permissive Accept header for
-    # compatibility with CDNs. If we only check for "mozilla"+"text/html" we
-    # misclassify these real clients as browsers and hand them the HTML
-    # landing page, which they can't parse ("unable to determine config
-    # format"). So known client fingerprints are checked FIRST and always
-    # win, regardless of what Accept/UA otherwise look like.
     known_client_markers = [
         "hiddify", "napsternet", "v2rayng", "v2box", "nekoray", "nekobox",
         "sing-box", "singbox", "streisand", "karing", "shadowrocket",
@@ -3021,9 +2842,6 @@ async def parse_vless_header(first_chunk: bytes):
     return command, address, port, first_chunk[pos:]
 
 async def parse_trojan_header(first_chunk: bytes):
-    """پارس هدر Trojan: hex(SHA224(password))[56] + CRLF + (CMD+ATYP+DST.ADDR+DST.PORT) + CRLF + payload.
-    مقدار hash پسورد اعتبارسنجی نمی‌شه چون احراز هویت واقعی همون uid مخفیِ توی
-    مسیر URL هست (دقیقاً مثل رفتار فعلیِ پنل برای VLESS)."""
     if len(first_chunk) < 56 + 2 + 1 + 1 + 2 + 2:
         raise ValueError("chunk too small")
     pos = 56
@@ -3057,14 +2875,11 @@ async def parse_trojan_header(first_chunk: bytes):
     return command, address, port, first_chunk[pos:]
 
 async def parse_proxy_header(auth: str, first_chunk: bytes):
-    """بر اساس auth گرفته‌شده از مسیر URL (vless یا trojan)، هدر رو با پارسر درست می‌خونه."""
     if auth == "trojan":
         return await parse_trojan_header(first_chunk)
     return await parse_vless_header(first_chunk)
 
 def response_prefix_for_protocol(auth: str) -> bytes:
-    """VLESS یک پاسخ ۲ بایتی (version=0 + no addons) قبل از اولین چانک دیتای برگشتی
-    می‌فرسته؛ Trojan چنین چیزی نداره و کاملاً raw pass-through هست."""
     return b"" if auth == "trojan" else b"\x00\x00"
 
 async def check_quota(uid: str, extra_bytes: int) -> bool:
@@ -3085,14 +2900,6 @@ async def add_usage(uid: str, n: int):
             LINKS[uid]["used_bytes"] += n
 
 async def check_and_add_usage(uid: str, extra_bytes: int) -> bool:
-    """Atomically check quota/expiry/active state and commit usage in a
-    single lock acquisition. Doing this as two separate locked calls
-    (check_quota then add_usage) let concurrent chunks - e.g. the upload
-    and download directions of the same connection racing each other -
-    both pass the check before either had committed, which could push a
-    link's used_bytes past its limit. It also doubled lock contention on
-    every single packet relayed, which was a real throughput bottleneck
-    under load. This does both in one step."""
     async with LINKS_LOCK:
         link = LINKS.get(uid)
         if link is None or not link["active"]:
@@ -3199,12 +3006,6 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
             await websocket.close(code=1008)
             return
 
-    # Xray/V2Ray clients that request early data (ws ?ed=... in the link)
-    # smuggle the first chunk of the VLESS request inside the
-    # Sec-WebSocket-Protocol header of the upgrade request itself, so it
-    # arrives in the same TCP packet as the handshake instead of a separate
-    # round trip after accept(). Echoing the header back keeps the handshake
-    # spec-compliant for clients that check it.
     early_data_hdr = websocket.headers.get("sec-websocket-protocol")
     early_data = b""
     if early_data_hdr:
@@ -3263,10 +3064,6 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(address, port), timeout=10.0
         )
-        # Disable Nagle's algorithm on the backend TCP socket. Without this,
-        # small proxied packets (the common case for interactive/streaming
-        # traffic) can sit buffered for up to ~40ms waiting to be coalesced,
-        # which is felt as real added latency/slowness on every config.
         try:
             backend_sock = writer.get_extra_info("socket")
             if backend_sock is not None:
@@ -3348,20 +3145,17 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
                 extra = f"duration {duration_s}s, {_fmt_bytes(info.get('bytes', 0))}"
                 await _log_connection_event("disconnect", label, info.get("uuid", uuid), info.get("ip", client_ip), extra)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# XHTTP transport (packet-up / stream-up) — جدا شده به xhttp_transport.py
-# ══════════════════════════════════════════════════════════════════════════════
 from xhttp_transport import router as xhttp_router
 app.include_router(xhttp_router)
 
-# ── HTML Panel (VANTA Theme - Modern Glass with Neon Accent) ─────────────────────────
+# ── HTML Panel (VANTA Theme) ─────────────────────────
 PANEL_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>VANTA Panel</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Vazirmatn:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@300;400;500;600;700&family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -3402,7 +3196,6 @@ body{display:flex;min-height:100vh}
 body[dir="rtl"]{direction:rtl;text-align:right}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(108,99,255,0.3);border-radius:4px}
 
-/* ===== ANIMATED BACKGROUND ===== */
 .bg-animated{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
 .bg-animated .orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.3;animation:orbFloat 25s ease-in-out infinite alternate}
 .bg-animated .orb:nth-child(1){width:500px;height:500px;background:var(--vanta-purple);top:-10%;left:-10%;animation-duration:25s}
@@ -3417,7 +3210,7 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 .grid-overlay{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(108,99,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,0.04) 1px,transparent 1px);background-size:60px 60px}
 .light-mode .grid-overlay{opacity:0.4}
 
-/* ===== LOGIN PAGE ===== */
+/* LOGIN PAGE */
 .login-page{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:var(--vanta-dark)}
 .login-wrapper{position:relative;z-index:1;width:100%;max-width:400px;padding:20px;animation:loginFade 0.8s ease-out}
 @keyframes loginFade{from{opacity:0;transform:translateY(30px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -3426,7 +3219,6 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 @keyframes borderRotate{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 .login-card:hover{border-color:var(--vanta-border2);box-shadow:0 50px 100px rgba(0,0,0,0.7),0 0 80px rgba(108,99,255,0.05)}
 
-/* LOGO */
 .login-logo{text-align:center;margin-bottom:32px}
 .login-logo .logo-icon{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;background:linear-gradient(135deg,var(--vanta-purple),var(--vanta-purple2));border-radius:24px;margin-bottom:16px;box-shadow:0 0 60px rgba(108,99,255,0.3);position:relative;transition:all 0.3s}
 .login-logo .logo-icon:hover{transform:scale(1.05);box-shadow:0 0 80px rgba(108,99,255,0.5)}
@@ -3434,27 +3226,24 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 .login-logo .logo-text{font-family:'Inter',sans-serif;font-size:30px;font-weight:900;letter-spacing:-0.5px;background:linear-gradient(135deg,#fff 30%,rgba(255,255,255,0.5));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .login-logo .logo-sub{font-size:12px;color:var(--vanta-text3);margin-top:4px;letter-spacing:3px;font-weight:500;text-transform:uppercase}
 
-/* FORM */
 .login-form .form-group{margin-bottom:20px}
 .login-form .form-label{display:block;font-size:11px;font-weight:700;color:var(--vanta-text2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
 .login-form .form-input{width:100%;padding:14px 18px;background:var(--vanta-glass2);border:1px solid var(--vanta-border);border-radius:14px;color:var(--vanta-text);font-size:15px;font-family:inherit;transition:all 0.3s ease;outline:none}
 .login-form .form-input::placeholder{color:var(--vanta-text3);font-weight:400}
 .login-form .form-input:focus{border-color:var(--vanta-purple);box-shadow:0 0 0 4px rgba(108,99,255,0.1)}
-.login-form .form-input:focus+.input-eye{color:var(--vanta-purple)}
 .login-form .input-wrap{position:relative}
 .login-form .input-eye{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--vanta-text3);cursor:pointer;transition:all 0.3s;background:none;border:none;font-size:18px;padding:0}
 .login-form .input-eye:hover{color:var(--vanta-text2)}
 .login-form .login-btn{width:100%;padding:16px;border-radius:14px;border:none;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;background:linear-gradient(135deg,var(--vanta-purple),var(--vanta-purple2));color:#fff;box-shadow:0 0 40px rgba(108,99,255,0.2);position:relative;overflow:hidden}
 .login-form .login-btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(108,99,255,0.4)}
 .login-form .login-btn:active{transform:scale(0.98)}
-.login-form .login-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,0.1));pointer-events:none}
 .login-form .login-error{color:var(--vanta-red);font-size:13px;margin-top:14px;text-align:center;display:none}
 .login-form .login-footer{text-align:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--vanta-border)}
 .login-form .login-footer a{color:var(--vanta-text3);text-decoration:none;font-size:12px;transition:color 0.3s;display:inline-flex;align-items:center;gap:6px}
 .login-form .login-footer a:hover{color:var(--vanta-gold)}
 .login-form .login-footer .footer-links{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
 
-/* ===== DASHBOARD (same as before) ===== */
+/* DASHBOARD */
 .dashboard-page{display:none;width:100%}
 .dashboard-page.active{display:block}
 
@@ -3493,7 +3282,6 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 .mob-social .sb-social-btn{padding:7px}
 .mob-social .sb-social-btn svg{width:16px;height:16px}
 
-/* Main content */
 .main{margin-left:var(--nav-w);flex:1;padding:24px 28px 48px;min-height:100vh;position:relative;z-index:1}
 .page{display:none;animation:pageIn 0.35s ease}
 .page.active{display:block}
@@ -3589,7 +3377,6 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 .alert-item{font-size:12px;margin-bottom:4px;color:var(--vanta-text);display:flex;justify-content:space-between}
 .live-logs-container{background:#000;border:1px solid var(--vanta-border);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:var(--vanta-gold);height:200px;overflow-y:auto;white-space:pre-wrap}
 
-/* Responsive */
 @media(max-width:768px){
   .mob-hd{display:flex}
   .mob-tl-group .lang-btn{font-size:13px;padding:7px 10px;border-radius:8px}
@@ -3638,11 +3425,10 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 </head>
 <body>
 
-<!-- ===== ANIMATED BACKGROUND ===== -->
 <div class="bg-animated"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
 <div class="grid-overlay"></div>
 
-<!-- ===== LOGIN PAGE ===== -->
+<!-- LOGIN PAGE -->
 <div class="login-page" id="login-page">
   <div class="login-wrapper">
     <div class="login-card">
@@ -3679,10 +3465,9 @@ body[dir="rtl"]{direction:rtl;text-align:right}
   </div>
 </div>
 
-<!-- ===== DASHBOARD ===== -->
+<!-- DASHBOARD -->
 <div class="dashboard-page" id="dashboard-page">
 
-  <!-- MOBILE HEADER -->
   <div class="mob-hd">
     <div class="mob-tl-group">
       <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-mob">🌙</button>
@@ -3698,7 +3483,6 @@ body[dir="rtl"]{direction:rtl;text-align:right}
     <span style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--vanta-gold);letter-spacing:2px">VANTA</span>
   </div>
 
-  <!-- SIDEBAR -->
   <aside class="sidebar" id="sb">
     <div class="sb-social" style="padding:10px 8px 0">
       <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg></a>
@@ -3725,10 +3509,8 @@ body[dir="rtl"]{direction:rtl;text-align:right}
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
   <main class="main">
 
-    <!-- Dashboard -->
     <section class="page active" id="page-dashboard">
       <div class="page-header"><div><div class="page-title" data-en="Dashboard" data-fa="داشبورد">Dashboard</div><div class="page-sub" id="last-up">-</div></div></div>
       <div class="alerts-box" id="alerts-box"><div class="alerts-title"><span>⚠️</span><span data-en="SYSTEM WARNINGS" data-fa="هشدارهای سیستم">SYSTEM WARNINGS</span></div><div id="alerts-list"></div></div>
@@ -3745,39 +3527,33 @@ body[dir="rtl"]{direction:rtl;text-align:right}
       <div class="card"><div class="card-hd"><div class="card-title" data-en="Hourly Traffic" data-fa="ترافیک ساعتی">Hourly Traffic</div></div><div class="chart-container"><canvas id="tc"></canvas></div></div>
     </section>
 
-    <!-- Inbounds -->
     <section class="page" id="page-inbounds">
       <div class="page-header"><div><div class="page-title" data-en="Inbounds" data-fa="اینباندها">Inbounds</div><div class="page-sub" data-en="VLESS over WebSocket · TLS" data-fa="VLESS روی WebSocket با TLS">VLESS over WebSocket · TLS</div></div><button class="btn btn-gold" onclick="showAddMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button></div>
       <div class="tb"><div class="search-wrap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="srch" data-ph-en="Search name…" data-ph-fa="جستجوی نام…" placeholder="Search name…" oninput="filterLinks()"></div><div class="filter-chips"><button class="chip active" data-filter="all" onclick="setFilter('all',this)" data-en="All" data-fa="همه">All</button><button class="chip" data-filter="active" onclick="setFilter('active',this)" data-en="Active" data-fa="فعال">Active</button><button class="chip" data-filter="off" onclick="setFilter('off',this)" data-en="Off" data-fa="غیرفعال">Off</button></div></div>
       <div class="card" style="padding:0;overflow:hidden"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th data-en="Name" data-fa="نام">Name</th><th data-en="Type" data-fa="نوع">Type</th><th data-en="Usage" data-fa="مصرف">Usage</th><th data-en="IPs" data-fa="آی‌پی">IPs</th><th data-en="Expiry" data-fa="انقضا">Expiry</th><th data-en="Status" data-fa="وضعیت">Status</th><th data-en="Actions" data-fa="عملیات">Actions</th></tr></thead><tbody id="ltb"></tbody></table></div><div class="m-cards" id="mcards"></div><div class="empty" id="lempty" style="display:none" data-en="No inbounds found" data-fa="هیچ اینباندی یافت نشد">No inbounds found</div></div>
     </section>
 
-    <!-- Traffic -->
     <section class="page" id="page-traffic">
       <div class="page-header"><div><div class="page-title" data-en="Traffic" data-fa="ترافیک">Traffic</div><div class="page-sub" data-en="Statistics & Inbound comparison" data-fa="آمار و مقایسه مصرف کاربران">Statistics & Inbound comparison</div></div></div>
       <div class="grid-2" style="margin-bottom:14px"><div class="card"><div class="sl-item"><span class="sl-k" data-en="Total Traffic" data-fa="کل ترافیک">Total Traffic</span><span class="sl-v" id="t-tr">-</span></div><div class="sl-item"><span class="sl-k" data-en="Total Requests" data-fa="کل درخواست‌ها">Total Requests</span><span class="sl-v" id="t-rq">-</span></div><div class="sl-item"><span class="sl-k" data-en="Uptime" data-fa="آپتایم">Uptime</span><span class="sl-v" id="t-up">-</span></div></div><div class="card"><div class="card-hd"><div class="card-title" data-en="Inbound Traffic Share" data-fa="سهم ترافیک کاربران">Inbound Traffic Share</div></div><div class="chart-container"><canvas id="inbound-chart"></canvas></div></div></div>
     </section>
 
-    <!-- Notifications -->
     <section class="page" id="page-notifications">
       <div class="page-header"><div><div class="page-title" data-en="Notifications" data-fa="اعلانات">Notifications</div><div class="page-sub" data-en="Updates, alerts & system messages" data-fa="بروزرسانی‌ها، هشدارها و پیام‌های سیستم">Updates, alerts & system messages</div></div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="markAllSeen()" data-en="Mark all read" data-fa="خوانده شدن همه">Mark all read</button><button class="btn btn-danger btn-sm" onclick="clearNotifs()" data-en="Clear all" data-fa="حذف همه">Clear all</button></div></div>
       <div class="card" style="padding:0;overflow:hidden"><div id="notif-list" style="padding:4px 0"><div class="empty" data-en="No notifications" data-fa="هیچ اعلانی وجود ندارد">No notifications</div></div></div>
     </section>
 
-    <!-- Clean IP -->
     <section class="page" id="page-addresses">
       <div class="page-header"><div><div class="page-title" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</div><div class="page-sub" data-en="Subscription alternative addresses" data-fa="آدرس‌های جایگزین اشتراک">Subscription alternative addresses</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost" onclick="importAddrs('railway')" data-en="🚄 Railway IP" data-fa="🚄 آی‌پی ریلوی">🚄 Railway IP</button><button class="btn btn-danger" onclick="delAllAddrs()" data-en="Delete All" data-fa="پاک کردن همه">Delete All</button><button class="btn btn-gold" onclick="showAddAddrMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button></div></div>
       <div class="card"><div style="font-size:12px;color:var(--vanta-text3);margin-bottom:12px" data-en="Add your own clean IPs or import from Railway/Cloudflare" data-fa="آی‌پی‌های تمیز خودت رو اضافه کن یا از Railway/Cloudflare ایمپورت کن">Add your own clean IPs or import from Railway/Cloudflare</div><div id="addr-list"></div></div>
     </section>
 
-    <!-- Security & Settings -->
     <section class="page" id="page-security">
       <div class="page-header"><div><div class="page-title" data-en="Security & Settings" data-fa="امنیت و تنظیمات">Security & Settings</div><div class="page-sub" data-en="Settings, Password & Live logs" data-fa="تنظیمات، تغییر رمز پنل و لاگ‌های زنده">Settings, Password & Live logs</div></div></div>
       <div class="grid-2"><div class="card"><div class="card-hd"><div class="card-title" data-en="Telegram Bot Settings" data-fa="تنظیمات ربات تلگرام">Telegram Bot Settings</div></div><div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="tg-token" placeholder="123456:ABC-DEF..."></div><div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="tg-admin-id" placeholder="987654321"></div><button class="btn btn-gold" onclick="saveSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save & Restart Bot" data-fa="ذخیره و ریستارت ربات">Save & Restart Bot</button></div><div class="card"><div class="card-hd"><div class="card-title" data-en="Change Password" data-fa="تغییر رمز عبور">Change Password</div></div><div class="fg"><label class="fl" data-en="Current Password" data-fa="رمز فعلی">Current Password</label><input class="fi" type="password" id="cpw" placeholder="Current password"></div><div class="fg"><label class="fl" data-en="New Password" data-fa="رمز جدید">New Password</label><input class="fi" type="password" id="npw" placeholder="Min 4 chars"></div><button class="btn btn-gold" onclick="chgPw()" style="margin-top:10px;width:100%;justify-content:center" data-en="Update Password" data-fa="بروزرسانی رمز">Update Password</button></div></div>
       <div class="card" style="margin-top:14px"><div class="card-hd"><div class="card-title" data-en="Live Logs" data-fa="لاگ‌های زنده">Live Logs</div></div><div class="live-logs-container" id="log-container">Connecting to live logs...</div></div>
     </section>
 
-    <!-- Settings -->
     <section class="page" id="page-settings">
       <div class="page-header"><div><div class="page-title" data-en="Settings" data-fa="تنظیمات">Settings</div><div class="page-sub" data-en="Railway Permanent Database & Preferences" data-fa="دیتابیس دائمی Railway و تنظیمات">Railway Permanent Database & Preferences</div></div></div>
       <div class="card" style="border:1px solid rgba(108,99,255,0.25)"><div class="card-hd"><div class="card-title" style="color:#818cf8">💾 <span data-en="Permanent Database" data-fa="دیتابیس دائمی">Permanent Database</span></div><span id="rdb-status" style="font-size:11px;color:var(--vanta-text3)">-</span></div><div style="font-size:11px;color:var(--vanta-text3);margin-bottom:12px;line-height:1.5" data-en="Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage." data-fa="به Railway متصل شوید، یک پروژه انتخاب کنید و مطمئن شوید یک volume پایدار در مسیر /data وجود دارد.">Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage.</div><div class="fg"><label class="fl" data-en="Railway Token" data-fa="توکن Railway">Railway Token</label><div style="display:flex;gap:8px"><input class="fi" type="password" id="rw-token" placeholder="rly_..." style="flex:1"><button class="btn btn-ghost btn-sm" onclick="fetchRailwayProjects()" id="rw-fetch-btn" data-en="Fetch" data-fa="دریافت">Fetch</button></div></div><div class="fg"><label class="fl" data-en="Project" data-fa="پروژه">Project</label><select class="fs" id="rw-project" disabled><option value="" data-en="-- Select a project --" data-fa="-- پروژه را انتخاب کنید --">-- Select a project --</option></select></div><div class="fg" id="rw-volume-info" style="display:none"><div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:8px;border:1px solid var(--vanta-border)" id="rw-volume-box"><span id="rw-volume-icon" style="font-size:20px">❓</span><div><div id="rw-volume-title" style="font-weight:600;font-size:13px">-</div><div id="rw-volume-desc" style="font-size:11px;color:var(--vanta-text3);margin-top:2px">-</div></div><button class="btn btn-gold btn-sm" id="rw-create-btn" style="margin-left:auto;display:none" onclick="createRailwayVolume()" data-en="Create Volume" data-fa="ایجاد Volume">Create Volume</button></div></div></div>
