@@ -2333,7 +2333,110 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .footer-link{{display:flex;align-items:center;gap:5px;color:var(--text3);
             font-size:11px;font-weight:600;text-decoration:none;transition:color .2s}}
         .footer-link:hover{{color:var(--gold)}}
-    </style>
+    
+/* ===== VANTA TOP NAVIGATION — refreshed layout ===== */
+:root{{--vanta-purple:#8b5cf6;--vanta-purple2:#a855f7;--vanta-purple-dim:rgba(139,92,246,.12);--vanta-purple-border:rgba(139,92,246,.28)}}
+.sidebar{{
+  position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
+  width:100%!important;height:74px!important;min-height:74px!important;
+  padding:0 30px!important;box-sizing:border-box!important;
+  background:rgba(5,6,12,.92)!important;border:0!important;border-bottom:1px solid rgba(139,92,246,.14)!important;
+  display:flex!important;flex-direction:row!important;align-items:center!important;gap:28px!important;
+  z-index:1000!important;backdrop-filter:blur(22px)!important;-webkit-backdrop-filter:blur(22px)!important;
+  box-shadow:0 12px 35px rgba(0,0,0,.18)!important;
+}}
+.sidebar::after{{display:none!important}}
+.sb-social{{display:none!important}}
+.sb-brand{{
+  width:185px!important;min-width:185px!important;height:auto!important;padding:0!important;margin:0!important;
+  border:0!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;
+}}
+.sb-hat{{display:none!important}}
+.sb-title{{font-family:'Inter','Vazirmatn',sans-serif!important;font-size:25px!important;font-weight:900!important;
+  letter-spacing:-.04em!important;color:#fff!important;overflow:visible!important}}
+.sb-title::after{{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:middle;
+  background:var(--vanta-purple2);box-shadow:0 0 14px rgba(168,85,247,.85)}}
+.sb-nav{{
+  flex:1!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;
+  padding:0!important;gap:4px!important;overflow-x:auto!important;overflow-y:hidden!important;min-width:0!important;
+  scrollbar-width:none!important;
+}}
+.sb-nav::-webkit-scrollbar{{display:none!important}}
+.nav-item{{
+  flex:0 0 auto!important;width:auto!important;min-width:auto!important;height:44px!important;
+  flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:9px!important;
+  padding:0 15px!important;border-radius:10px!important;border:1px solid transparent!important;
+  color:rgba(255,255,255,.55)!important;background:transparent!important;overflow:visible!important;
+  font-size:13px!important;font-weight:600!important;letter-spacing:0!important;white-space:nowrap!important;
+}}
+.nav-item::before{{display:none!important}}
+.nav-item:hover{{color:#fff!important;background:rgba(139,92,246,.07)!important;border-color:rgba(139,92,246,.14)!important;transform:none!important}}
+.nav-item.active{{
+  color:#fff!important;background:linear-gradient(135deg,rgba(139,92,246,.25),rgba(168,85,247,.14))!important;
+  border-color:rgba(139,92,246,.58)!important;box-shadow:0 0 24px rgba(139,92,246,.12),inset 0 1px 0 rgba(255,255,255,.06)!important;
+}}
+.nav-icon{{width:16px!important;height:16px!important;color:currentColor!important}}
+.nav-item:hover .nav-icon,.nav-item.active .nav-icon{{transform:none!important}}
+.nav-label{{font-size:13px!important;font-weight:600!important;letter-spacing:0!important;overflow:visible!important}}
+.nav-badge{{top:4px!important;right:3px!important;background:var(--vanta-purple2)!important;color:#fff!important}}
+.sb-bottom{{
+  width:auto!important;min-width:auto!important;padding:0!important;margin:0!important;border:0!important;
+  display:flex!important;flex-direction:row!important;align-items:center!important;gap:8px!important;
+}}
+.sb-bottom .theme-toggle{{height:42px!important;padding:0 12px!important;border-radius:10px!important;font-size:0!important}}
+.sb-bottom .theme-toggle::before{{content:'◐';font-size:18px;color:rgba(255,255,255,.72)}}
+.sb-bottom .lang-row{{display:flex!important;gap:3px!important}}
+.sb-bottom .lang-btn{{width:34px!important;height:34px!important;padding:0!important;border-radius:9px!important}}
+.sb-bottom .logout-btn{{width:42px!important;height:42px!important;padding:0!important;border-radius:11px!important;font-size:0!important;background:rgba(248,113,113,.05)!important}}
+.sb-bottom .logout-btn svg{{width:16px!important;height:16px!important}}
+.logout-mob{{display:none!important}}
+.main{{margin-left:0!important;padding:98px 31px 48px!important;min-height:100vh!important}}
+.mob-hd{{display:none!important}}
+.page-header{{margin-bottom:22px!important}}
+.page-title{{font-size:22px!important}}
+.page-sub{{font-size:11px!important}}
+
+.top-status{{display:flex!important;align-items:center!important;gap:7px!important;height:38px!important;padding:0 15px!important;border:1px solid rgba(139,92,246,.24)!important;border-radius:20px!important;color:#fff!important;font-size:12px!important;font-weight:700!important;white-space:nowrap!important;background:rgba(10,11,18,.72)!important}}
+.top-status-dot{{width:7px!important;height:7px!important;border-radius:50%!important;background:#22c55e!important;box-shadow:0 0 10px rgba(34,197,94,.8)!important}}
+.top-icon-btn{{width:42px!important;height:42px!important;display:flex!important;align-items:center!important;justify-content:center!important;border:1px solid rgba(139,92,246,.18)!important;border-radius:12px!important;background:rgba(10,11,18,.62)!important;color:rgba(255,255,255,.72)!important;cursor:pointer!important;position:relative!important;transition:all .2s!important}}
+.top-icon-btn:hover{{color:#fff!important;border-color:rgba(139,92,246,.48)!important;background:rgba(139,92,246,.10)!important;transform:translateY(-1px)!important}}
+.top-icon-btn svg{{width:18px!important;height:18px!important}}
+.top-user{{width:42px!important;height:42px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;border:2px solid var(--vanta-purple2)!important;background:linear-gradient(145deg,rgba(139,92,246,.24),rgba(10,10,18,.9))!important;color:#fff!important;cursor:pointer!important;box-shadow:0 0 18px rgba(139,92,246,.18)!important}}
+.top-user svg{{width:19px!important;height:19px!important}}
+.top-actions{{display:flex!important;align-items:center!important;gap:10px!important;margin-left:auto!important}}
+.sb-bottom .legacy-controls{{display:none!important}}
+
+@media(max-width:1100px){{
+  .sidebar{{padding:0 18px!important;gap:14px!important}}
+  .sb-brand{{width:130px!important;min-width:130px!important}}
+  .nav-item{{padding:0 10px!important}}
+  .nav-label{{font-size:12px!important}}
+  .sb-bottom .theme-toggle{{padding:0 9px!important}}
+}}
+@media(max-width:760px){{
+  .sidebar{{height:68px!important;min-height:68px!important;padding:0 12px!important;gap:10px!important}}
+  .sb-brand{{width:92px!important;min-width:92px!important}}
+  .sb-title{{font-size:21px!important}}
+  .sb-nav{{gap:2px!important}}
+  .nav-item{{height:42px!important;padding:0 10px!important}}
+  .nav-label{{font-size:11px!important}}
+  .nav-icon{{width:15px!important;height:15px!important}}
+  .sb-bottom .theme-toggle{{display:none!important}}
+  .sb-bottom .lang-btn{{width:30px!important;height:30px!important;font-size:9px!important}}
+  .sb-bottom .logout-btn{{width:34px!important;height:34px!important}}
+  .main{{padding:84px 14px 30px!important}}
+}}
+@media(max-width:520px){{
+  .sb-brand{{width:72px!important;min-width:72px!important}}
+  .sb-title{{font-size:18px!important}}
+  .nav-item{{padding:0 8px!important}}
+  .nav-label{{display:none!important}}
+  .nav-icon{{width:17px!important;height:17px!important}}
+  .sb-bottom{{gap:4px!important}}
+  .sb-bottom .lang-row{{display:none!important}}
+}}
+
+</style>
 </head>
 <body>
 <div class="bg-glow"></div>
@@ -2436,7 +2539,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
     <!-- Footer links -->
     <div class="footer-links">
-        <a href="https://t.me/VANTA_sh_op" target="_blank" class="footer-link">
+        <a href="https://t.me/Vantahub1792" target="_blank" class="footer-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
             Telegram Channel
         </a>
@@ -3720,7 +3823,7 @@ body[dir="rtl"]{direction:rtl;text-align:right}
         <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
       </div>
       <div class="mob-social">
-        <a href="https://t.me/VANTA_sh_op" target="_blank" class="sb-social-btn" title="Telegram Channel">
+        <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn" title="Telegram Channel">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
         </a>
         <a href="https://github.com/vantahubkiarashpanel/Vantapanel/tree/main" target="_blank" class="sb-social-btn" title="GitHub">
@@ -3731,76 +3834,64 @@ body[dir="rtl"]{direction:rtl;text-align:right}
     <span style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:2px">VANTA</span>
   </div>
 
-  <!-- SIDEBAR -->
+  <!-- TOP NAVIGATION -->
   <aside class="sidebar" id="sb">
-    <!-- Telegram & GitHub links (above the VANTA logo) -->
-    <div class="sb-social" style="padding:10px 8px 0">
-      <a href="https://t.me/VANTA_sh_op" target="_blank" class="sb-social-btn" title="Telegram Channel">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
-      </a>
-      <a href="https://github.com/vantahubkiarashpanel/Vantapanel/tree/main" target="_blank" class="sb-social-btn" title="GitHub">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-      </a>
-    </div>
-    <div class="sb-brand">
-      <div class="sb-hat">
-        <svg width="36" height="30" viewBox="0 0 84 68" fill="none">
-          <ellipse cx="42" cy="52" rx="40" ry="11" fill="#C8900A" opacity=".85"/>
-          <ellipse cx="42" cy="52" rx="40" ry="11" fill="none" stroke="#FFD700" stroke-width="1.4" opacity=".6"/>
-          <path d="M19 50 Q21 22 42 17 Q63 22 65 50" fill="#4a3a00" stroke="#FFD700" stroke-width="1.4"/>
-          <ellipse cx="42" cy="17" rx="23" ry="5.5" fill="#C8900A" stroke="#FFD700" stroke-width="1"/>
-          <path d="M20 45 Q21.5 41.5 42 39.5 Q62.5 41.5 64 45" fill="none" stroke="#CC2200" stroke-width="4.5" stroke-linecap="round" opacity=".92"/>
-          <ellipse cx="35" cy="24" rx="5" ry="3" fill="rgba(255,255,255,.1)" transform="rotate(-20 35 24)"/>
-        </svg>
-      </div>
+    <div class="sb-brand" aria-label="VANTA Panel">
       <div class="sb-title">VANTA</div>
     </div>
-    <nav class="sb-nav">
+
+    <nav class="sb-nav" aria-label="Primary navigation">
       <button class="nav-item active" data-page="dashboard">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/></svg>
         <span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span>
       </button>
       <button class="nav-item" data-page="inbounds">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
         <span class="nav-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</span>
         <span class="nav-badge" id="nb">0</span>
       </button>
       <button class="nav-item" data-page="traffic">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h4l3-9 4 12 3-7h4"/></svg>
         <span class="nav-label" data-en="Traffic" data-fa="ترافیک">Traffic</span>
       </button>
       <button class="nav-item" data-page="addresses">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18"/><path d="M12 3a14 14 0 000 18"/></svg>
         <span class="nav-label" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</span>
       </button>
       <button class="nav-item" data-page="notifications">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
         <span class="nav-label" data-en="Notifications" data-fa="اعلانات">Notifications</span>
         <span class="nav-badge" id="notif-badge" style="display:none">0</span>
       </button>
       <button class="nav-item" data-page="security">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
         <span class="nav-label" data-en="Security" data-fa="امنیت">Security</span>
       </button>
       <button class="nav-item" data-page="settings">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.1H10v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.1v4h-.1a1.7 1.7 0 00-1.6 1z"/></svg>
         <span class="nav-label" data-en="Settings" data-fa="تنظیمات">Settings</span>
       </button>
-      <button class="nav-item logout-mob" onclick="doLogout()">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span class="nav-label" data-en="Logout" data-fa="خروج">Logout</span>
-      </button>
     </nav>
+
     <div class="sb-bottom">
-      <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-desk" style="margin-bottom:4px;font-size:12px">🌙 Theme</button>
-      <div class="lang-row">
-        <button class="lang-btn lang-en active" onclick="setLang('en')">EN</button>
-        <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
+      <div class="top-actions">
+        <div class="top-status"><span class="top-status-dot"></span><span data-en="Online" data-fa="آنلاین">Online</span></div>
+        <button class="top-icon-btn" onclick="showPage('notifications')" title="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
+          <span class="nav-badge" id="top-notif-badge" style="display:none;top:1px;right:1px">0</span>
+        </button>
+        <button class="top-user" onclick="doLogout()" title="Logout" aria-label="Logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21c.8-4 3.2-6 7-6s6.2 2 7 6"/></svg>
+        </button>
       </div>
-      <button class="logout-btn" onclick="doLogout()" style="margin-top:2px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span data-en="Logout" data-fa="خروج">Logout</span>
-      </button>
+      <div class="legacy-controls">
+        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-desk">🌙 Theme</button>
+        <div class="lang-row">
+          <button class="lang-btn lang-en active" onclick="setLang('en')">EN</button>
+          <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
+        </div>
+        <button class="logout-btn" onclick="doLogout"><span data-en="Logout" data-fa="خروج">Logout</span></button>
+      </div>
     </div>
   </aside>
 
@@ -4945,9 +5036,14 @@ async function updateNotifBadge(){
     if(!r.ok)return;
     const d=await r.json();
     const badge=$m('notif-badge');
+    const topBadge=$m('top-notif-badge');
     if(badge){
       if(d.count>0){badge.style.display='';badge.textContent=d.count}
       else{badge.style.display='none'}
+    }
+    if(topBadge){
+      if(d.count>0){topBadge.style.display='';topBadge.textContent=d.count}
+      else{topBadge.style.display='none'}
     }
   }catch(e){}
 }
@@ -5008,40 +5104,7 @@ function startPolling(){
 }
 startPolling();
 
-// ── Panel update notifications (checks GitHub for new releases) ────────
-const PANEL_VERSION_KEY='vanta_panel_last_version';
-const PANEL_GH_NOTIFIED_KEY='vanta_panel_last_notified_gh';
-let loadedPanelVersion=null;
-
-async function checkPanelVersion(isPeriodic){
-  try{
-    const r=await fetch('/api/version');
-    if(!r.ok)return;
-    const d=await r.json();
-    const serverVersion=d.version;
-
-    // Detect that this panel instance was updated since the last time we visited
-    if(!loadedPanelVersion){
-      loadedPanelVersion=serverVersion;
-      const lastSeen=localStorage.getItem(PANEL_VERSION_KEY);
-      if(lastSeen&&lastSeen!==serverVersion){
-        toast('✅ Panel updated successfully to v'+serverVersion);
-      }
-      localStorage.setItem(PANEL_VERSION_KEY,serverVersion);
-    }
-
-    // Detect that GitHub has a newer release than what's currently running
-    if(d.update_available&&d.latest_github_version){
-      const alreadyNotified=localStorage.getItem(PANEL_GH_NOTIFIED_KEY);
-      if(alreadyNotified!==d.latest_github_version){
-        toast('🚀 New version available on GitHub: '+d.latest_github_version+' - pull the latest update');
-        localStorage.setItem(PANEL_GH_NOTIFIED_KEY,d.latest_github_version);
-      }
-    }
-  }catch(e){}
-}
-checkPanelVersion(false);
-setInterval(()=>checkPanelVersion(true),5*60*1000);
+// Panel update notifications intentionally disabled.
 </script>
 </body>
 </html>"""
