@@ -3354,276 +3354,249 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
 from xhttp_transport import router as xhttp_router
 app.include_router(xhttp_router)
 
-# ── HTML Panel (VANTA Theme - Dark Purple/Indigo with Gold Accent) ─────────────────────────
+# ── HTML Panel (VANTA Theme - Modern Glass with Neon Accent) ─────────────────────────
 PANEL_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>VANTA Panel</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@300;400;500;600;700&family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Vazirmatn:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --gold:#FFD700;--gold2:#FFC200;--gold3:#C8900A;--gold-dim:rgba(255,215,0,0.12);
-  --indigo:#818CF8;--indigo2:#6366F1;--indigo-dim:rgba(99,102,241,0.15);
-  --black:#06060e;--black2:#0a0a18;--black3:#0f0f20;
-  --surface:rgba(10,10,24,0.97);--surface2:rgba(15,15,32,0.9);--surface3:rgba(20,20,40,0.8);
-  --border:rgba(255,215,0,0.1);--border2:rgba(255,215,0,0.2);
-  --text:rgba(255,255,255,0.92);--text2:rgba(255,215,0,0.7);--text3:rgba(255,255,255,0.4);
-  --gold-glow:0 0 20px rgba(255,215,0,0.4);
-  --indigo-glow:0 0 20px rgba(99,102,241,0.3);
-  --green:#4ade80;--green-dim:rgba(74,222,128,0.1);
-  --red:#f87171;--red-dim:rgba(248,113,113,0.1);
-  --yellow:#fbbf24;
+  --vanta-purple:#6C63FF;
+  --vanta-purple2:#4A3FCF;
+  --vanta-gold:#FFD700;
+  --vanta-gold2:#FFC200;
+  --vanta-neon:#00D4FF;
+  --vanta-red:#FF6B6B;
+  --vanta-green:#4ade80;
+  --vanta-dark:#06060e;
+  --vanta-dark2:#0a0a18;
+  --vanta-dark3:#0f0f20;
+  --vanta-glass:rgba(255,255,255,0.04);
+  --vanta-glass2:rgba(255,255,255,0.06);
+  --vanta-border:rgba(255,255,255,0.08);
+  --vanta-border2:rgba(255,255,255,0.12);
+  --vanta-text:rgba(255,255,255,0.92);
+  --vanta-text2:rgba(255,255,255,0.6);
+  --vanta-text3:rgba(255,255,255,0.35);
   --nav-w:64px;
 }
 body.light-mode{
-  --black:#f0f4f8;--black2:#ffffff;--black3:#e8eef5;
-  --surface:rgba(255,255,255,0.97);--surface2:#ffffff;--surface3:#f8fafc;
-  --border:rgba(255,215,0,0.15);--border2:rgba(255,215,0,0.3);
-  --text:#0f172a;--text2:#0891b2;--text3:#64748b;
-  --gold-dim:rgba(255,215,0,0.1);--gold-dim2:rgba(255,215,0,0.06);
-  --gold-glow:0 4px 14px rgba(0,0,0,0.08);
+  --vanta-dark:#f0f4f8;
+  --vanta-dark2:#ffffff;
+  --vanta-dark3:#e8eef5;
+  --vanta-glass:rgba(0,0,0,0.03);
+  --vanta-glass2:rgba(0,0,0,0.05);
+  --vanta-border:rgba(0,0,0,0.06);
+  --vanta-border2:rgba(0,0,0,0.1);
+  --vanta-text:#0f172a;
+  --vanta-text2:#475569;
+  --vanta-text3:#94a3b8;
 }
-html,body{height:100%;background:var(--black);transition:background .3s,color .3s}
-body{font-family:'Inter','Vazirmatn',sans-serif;color:var(--text);display:flex;min-height:100vh}
+html,body{height:100%;background:var(--vanta-dark);font-family:'Inter','Vazirmatn',sans-serif;color:var(--vanta-text);transition:background .3s,color .3s}
+body{display:flex;min-height:100vh}
 body[dir="rtl"]{direction:rtl;text-align:right}
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(255,215,0,0.2);border-radius:4px}
-.bg-fixed{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 70% 50% at 50% -10%,rgba(99,102,241,0.12),transparent 60%),
-             radial-gradient(ellipse 40% 30% at 90% 90%,rgba(255,215,0,0.04),transparent 50%)}
-.light-mode .bg-fixed{background:none}
-.grid-fixed{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:linear-gradient(rgba(255,215,0,0.04) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,215,0,0.04) 1px,transparent 1px);
-  background-size:56px 56px}
-.light-mode .grid-fixed{opacity:.4}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(108,99,255,0.3);border-radius:4px}
+
+/* ===== ANIMATED BACKGROUND ===== */
+.bg-animated{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-animated .orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.3;animation:orbFloat 25s ease-in-out infinite alternate}
+.bg-animated .orb:nth-child(1){width:500px;height:500px;background:var(--vanta-purple);top:-10%;left:-10%;animation-duration:25s}
+.bg-animated .orb:nth-child(2){width:400px;height:400px;background:var(--vanta-neon);bottom:-10%;right:-10%;animation-duration:20s;animation-delay:3s}
+.bg-animated .orb:nth-child(3){width:300px;height:300px;background:var(--vanta-gold);top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:30s;animation-delay:6s;opacity:0.15}
+@keyframes orbFloat{
+  0%{transform:translate(0,0) scale(1)}
+  33%{transform:translate(40px,-60px) scale(1.1)}
+  66%{transform:translate(-30px,50px) scale(0.9)}
+  100%{transform:translate(20px,-20px) scale(1.05)}
+}
+.grid-overlay{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(108,99,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,0.04) 1px,transparent 1px);background-size:60px 60px}
+.light-mode .grid-overlay{opacity:0.4}
+
+/* ===== LOGIN PAGE ===== */
+.login-page{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:var(--vanta-dark)}
+.login-wrapper{position:relative;z-index:1;width:100%;max-width:400px;padding:20px;animation:loginFade 0.8s ease-out}
+@keyframes loginFade{from{opacity:0;transform:translateY(30px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.login-card{background:var(--vanta-glass);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid var(--vanta-border);border-radius:32px;padding:44px 36px 40px;box-shadow:0 40px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.06);transition:all 0.4s ease;position:relative;overflow:hidden}
+.login-card::before{content:'';position:absolute;inset:-1px;border-radius:32px;padding:1px;background:linear-gradient(135deg,var(--vanta-purple),var(--vanta-gold),var(--vanta-neon),var(--vanta-purple));background-size:300% 300%;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:borderRotate 6s linear infinite;pointer-events:none}
+@keyframes borderRotate{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.login-card:hover{border-color:var(--vanta-border2);box-shadow:0 50px 100px rgba(0,0,0,0.7),0 0 80px rgba(108,99,255,0.05)}
+
+/* LOGO */
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .logo-icon{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;background:linear-gradient(135deg,var(--vanta-purple),var(--vanta-purple2));border-radius:24px;margin-bottom:16px;box-shadow:0 0 60px rgba(108,99,255,0.3);position:relative;transition:all 0.3s}
+.login-logo .logo-icon:hover{transform:scale(1.05);box-shadow:0 0 80px rgba(108,99,255,0.5)}
+.login-logo .logo-icon svg{width:40px;height:40px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.login-logo .logo-text{font-family:'Inter',sans-serif;font-size:30px;font-weight:900;letter-spacing:-0.5px;background:linear-gradient(135deg,#fff 30%,rgba(255,255,255,0.5));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-logo .logo-sub{font-size:12px;color:var(--vanta-text3);margin-top:4px;letter-spacing:3px;font-weight:500;text-transform:uppercase}
+
+/* FORM */
+.login-form .form-group{margin-bottom:20px}
+.login-form .form-label{display:block;font-size:11px;font-weight:700;color:var(--vanta-text2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.login-form .form-input{width:100%;padding:14px 18px;background:var(--vanta-glass2);border:1px solid var(--vanta-border);border-radius:14px;color:var(--vanta-text);font-size:15px;font-family:inherit;transition:all 0.3s ease;outline:none}
+.login-form .form-input::placeholder{color:var(--vanta-text3);font-weight:400}
+.login-form .form-input:focus{border-color:var(--vanta-purple);box-shadow:0 0 0 4px rgba(108,99,255,0.1)}
+.login-form .form-input:focus+.input-eye{color:var(--vanta-purple)}
+.login-form .input-wrap{position:relative}
+.login-form .input-eye{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--vanta-text3);cursor:pointer;transition:all 0.3s;background:none;border:none;font-size:18px;padding:0}
+.login-form .input-eye:hover{color:var(--vanta-text2)}
+.login-form .login-btn{width:100%;padding:16px;border-radius:14px;border:none;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;background:linear-gradient(135deg,var(--vanta-purple),var(--vanta-purple2));color:#fff;box-shadow:0 0 40px rgba(108,99,255,0.2);position:relative;overflow:hidden}
+.login-form .login-btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(108,99,255,0.4)}
+.login-form .login-btn:active{transform:scale(0.98)}
+.login-form .login-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,0.1));pointer-events:none}
+.login-form .login-error{color:var(--vanta-red);font-size:13px;margin-top:14px;text-align:center;display:none}
+.login-form .login-footer{text-align:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--vanta-border)}
+.login-form .login-footer a{color:var(--vanta-text3);text-decoration:none;font-size:12px;transition:color 0.3s;display:inline-flex;align-items:center;gap:6px}
+.login-form .login-footer a:hover{color:var(--vanta-gold)}
+.login-form .login-footer .footer-links{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
+
+/* ===== DASHBOARD (same as before) ===== */
+.dashboard-page{display:none;width:100%}
+.dashboard-page.active{display:block}
 
 /* Sidebar */
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--nav-w);background:var(--surface);
-  border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;
-  transition:all .3s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(20px)}
-.sidebar::after{content:'';position:absolute;top:0;right:0;bottom:0;width:1px;
-  background:linear-gradient(180deg,transparent,rgba(99,102,241,0.4) 30%,rgba(255,215,0,0.4) 70%,transparent)}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--nav-w);background:var(--vanta-glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-right:1px solid var(--vanta-border);display:flex;flex-direction:column;z-index:100;transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
+.sidebar::after{content:'';position:absolute;top:0;right:0;bottom:0;width:1px;background:linear-gradient(180deg,transparent,rgba(108,99,255,0.4) 30%,rgba(255,215,0,0.4) 70%,transparent)}
 .light-mode .sidebar::after{display:none}
-.sb-brand{padding:16px 0;display:flex;flex-direction:column;align-items:center;gap:2px;
-  border-bottom:1px solid var(--border);flex-shrink:0}
-.sb-hat{filter:drop-shadow(0 0 10px rgba(99,102,241,.5));transition:filter .3s}
-.sb-hat:hover{filter:drop-shadow(0 0 18px rgba(255,215,0,.7))}
-.sb-title{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:rgba(255,215,0,.6);
-  text-transform:uppercase;white-space:nowrap;overflow:hidden}
-.sb-nav{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:12px;
-  gap:2px;padding-left:8px;padding-right:8px}
-.nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  padding:10px 6px;border-radius:12px;color:var(--text3);cursor:pointer;
-  transition:all .2s cubic-bezier(.4,0,.2,1);border:1px solid transparent;position:relative;
-  overflow:hidden;text-decoration:none;background:none;width:100%;font-family:inherit}
-.nav-item::before{content:'';position:absolute;inset:0;border-radius:12px;
-  background:linear-gradient(135deg,var(--gold-dim),var(--indigo-dim));opacity:0;transition:opacity .2s}
-.nav-item:hover{color:var(--gold);border-color:rgba(255,215,0,.12)}
+.sb-brand{padding:16px 0;display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:1px solid var(--vanta-border);flex-shrink:0}
+.sb-hat{filter:drop-shadow(0 0 10px rgba(108,99,255,0.5));transition:filter 0.3s}
+.sb-hat:hover{filter:drop-shadow(0 0 18px rgba(255,215,0,0.7))}
+.sb-title{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.18em;color:rgba(255,215,0,0.6);text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.sb-nav{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:12px;gap:2px;padding-left:8px;padding-right:8px}
+.nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 6px;border-radius:12px;color:var(--vanta-text3);cursor:pointer;transition:all 0.2s cubic-bezier(0.4,0,0.2,1);border:1px solid transparent;position:relative;overflow:hidden;text-decoration:none;background:none;width:100%;font-family:inherit}
+.nav-item::before{content:'';position:absolute;inset:0;border-radius:12px;background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(108,99,255,0.08));opacity:0;transition:opacity 0.2s}
+.nav-item:hover{color:var(--vanta-gold);border-color:rgba(255,215,0,0.12)}
 .nav-item:hover::before{opacity:1}
-.nav-item.active{color:var(--gold);border-color:rgba(255,215,0,.22);background:var(--gold-dim);
-  box-shadow:0 0 16px rgba(255,215,0,.1),inset 0 1px 0 rgba(255,215,0,.12)}
+.nav-item.active{color:var(--vanta-gold);border-color:rgba(255,215,0,0.22);background:rgba(255,215,0,0.08);box-shadow:0 0 16px rgba(255,215,0,0.1),inset 0 1px 0 rgba(255,215,0,0.12)}
 .nav-item.active::before{opacity:1}
-.nav-icon{width:18px;height:18px;flex-shrink:0;transition:transform .2s}
+.nav-icon{width:18px;height:18px;flex-shrink:0;transition:transform 0.2s}
 .nav-item:hover .nav-icon,.nav-item.active .nav-icon{transform:scale(1.1)}
-.nav-label{font-size:8.5px;font-weight:600;letter-spacing:.05em;white-space:nowrap;overflow:hidden}
-.nav-badge{position:absolute;top:5px;right:5px;background:var(--gold);color:#000;font-size:8px;
-  font-weight:800;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;
-  justify-content:center;padding:0 3px}
-.sb-bottom{padding:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.nav-label{font-size:8.5px;font-weight:600;letter-spacing:0.05em;white-space:nowrap;overflow:hidden}
+.nav-badge{position:absolute;top:5px;right:5px;background:var(--vanta-gold);color:#000;font-size:8px;font-weight:800;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+.sb-bottom{padding:8px;border-top:1px solid var(--vanta-border);display:flex;flex-direction:column;gap:6px;flex-shrink:0}
 .lang-row{display:flex;gap:4px}
-.lang-btn{flex:1;padding:5px 2px;border:1px solid var(--border);border-radius:7px;background:none;
-  color:var(--text3);font-size:9px;font-weight:700;cursor:pointer;transition:all .2s;
-  font-family:inherit;letter-spacing:.05em}
-.lang-btn.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
-.lang-btn:hover:not(.active){border-color:rgba(255,215,0,.15);color:rgba(255,215,0,.5)}
-.logout-btn{display:flex;align-items:center;justify-content:center;padding:7px;
-  border:1px solid rgba(248,113,113,.15);border-radius:8px;background:rgba(248,113,113,.06);
-  color:rgba(248,113,113,.6);cursor:pointer;transition:all .2s;font-size:10px;gap:4px;
-  font-weight:600;font-family:inherit}
-.logout-btn:hover{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.3);color:var(--red)}
-.theme-toggle{background:transparent;border:1px solid var(--border);color:var(--text3);
-  border-radius:7px;padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .2s}
-.theme-toggle:hover{background:var(--surface3);color:var(--gold);border-color:var(--gold)}
-
-/* Social links in sidebar */
+.lang-btn{flex:1;padding:5px 2px;border:1px solid var(--vanta-border);border-radius:7px;background:none;color:var(--vanta-text3);font-size:9px;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:inherit;letter-spacing:0.05em}
+.lang-btn.active{background:rgba(255,215,0,0.12);border-color:var(--vanta-gold);color:var(--vanta-gold)}
+.logout-btn{display:flex;align-items:center;justify-content:center;padding:7px;border:1px solid rgba(255,107,107,0.15);border-radius:8px;background:rgba(255,107,107,0.06);color:rgba(255,107,107,0.6);cursor:pointer;transition:all 0.2s;font-size:10px;gap:4px;font-weight:600;font-family:inherit}
+.logout-btn:hover{background:rgba(255,107,107,0.12);border-color:rgba(255,107,107,0.3);color:var(--vanta-red)}
+.theme-toggle{background:transparent;border:1px solid var(--vanta-border);color:var(--vanta-text3);border-radius:7px;padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.theme-toggle:hover{background:var(--vanta-dark3);color:var(--vanta-gold);border-color:var(--vanta-gold)}
 .sb-social{display:flex;gap:4px;margin-bottom:2px}
-.sb-social-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:7px 4px;
-  border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;
-  transition:all .2s;text-decoration:none;background:none}
-.sb-social-btn:hover{border-color:var(--border2);color:var(--gold);background:var(--gold-dim);
-  box-shadow:0 0 10px rgba(255,215,0,0.1)}
+.sb-social-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:7px 4px;border:1px solid var(--vanta-border);border-radius:8px;color:var(--vanta-text3);cursor:pointer;transition:all 0.2s;text-decoration:none;background:none}
+.sb-social-btn:hover{border-color:var(--vanta-border2);color:var(--vanta-gold);background:rgba(255,215,0,0.06)}
 .sb-social-btn svg{width:14px;height:14px}
 .mob-social{display:none;gap:8px;align-items:center}
 .mob-social .sb-social-btn{padding:7px}
 .mob-social .sb-social-btn svg{width:16px;height:16px}
 
-/* Main */
+/* Main content */
 .main{margin-left:var(--nav-w);flex:1;padding:24px 28px 48px;min-height:100vh;position:relative;z-index:1}
-.page{display:none;animation:pgIn .35s ease}
+.page{display:none;animation:pageIn 0.35s ease}
 .page.active{display:block}
-@keyframes pgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .page-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.page-title{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--text);letter-spacing:.04em}
-.page-sub{font-size:11px;color:var(--text3);margin-top:3px;letter-spacing:.02em}
+.page-title{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--vanta-text);letter-spacing:0.04em}
+.page-sub{font-size:11px;color:var(--vanta-text3);margin-top:3px;letter-spacing:0.02em}
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
-.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;
-  padding:16px;position:relative;overflow:hidden;transition:all .25s;animation:cIn .5s ease both}
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(99,102,241,0.4),transparent)}
+.stat-card{background:var(--vanta-glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--vanta-border);border-radius:12px;padding:16px;position:relative;overflow:hidden;transition:all 0.25s;animation:cardIn 0.5s ease both}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(108,99,255,0.4),transparent)}
 .light-mode .stat-card::before{display:none}
-.stat-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:var(--gold-glow)}
-@keyframes cIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-.stat-label{font-size:9.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
-.stat-val{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.02em}
-.stat-unit{font-size:11px;font-weight:400;color:var(--text3)}
-.card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;
-  margin-bottom:10px;position:relative;overflow:hidden;transition:all .25s;animation:cIn .5s ease both}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(99,102,241,0.2),transparent)}
+.stat-card:hover{border-color:var(--vanta-border2);transform:translateY(-2px);box-shadow:0 0 30px rgba(108,99,255,0.05)}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.stat-label{font-size:9.5px;color:var(--vanta-text3);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
+.stat-val{font-size:20px;font-weight:700;color:var(--vanta-text);letter-spacing:-0.02em}
+.stat-unit{font-size:11px;font-weight:400;color:var(--vanta-text3)}
+.card{background:var(--vanta-glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--vanta-border);border-radius:12px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden;transition:all 0.25s;animation:cardIn 0.5s ease both}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(108,99,255,0.2),transparent)}
 .light-mode .card::before{display:none}
 .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.card-title{font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.card-title{font-size:12px;font-weight:600;color:var(--vanta-text);display:flex;align-items:center;gap:6px}
 .chart-container{height:170px;width:100%}
-.btn{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:7px 14px;
-  cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:none;transition:all .2s;letter-spacing:.03em}
-.btn-gold{background:linear-gradient(135deg,#FFD700,#FFC200);color:#000;box-shadow:0 0 16px rgba(255,215,0,.25)}
-.btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 0 24px rgba(255,215,0,.4)}
-.btn-ghost{background:var(--surface3);color:var(--text);border:1px solid var(--border)}
-.btn-danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,.15)}
+.btn{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:7px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:none;transition:all 0.2s;letter-spacing:0.03em}
+.btn-gold{background:linear-gradient(135deg,var(--vanta-gold),var(--vanta-gold2));color:#000;box-shadow:0 0 16px rgba(255,215,0,0.25)}
+.btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 0 24px rgba(255,215,0,0.4)}
+.btn-ghost{background:var(--vanta-glass2);color:var(--vanta-text);border:1px solid var(--vanta-border)}
+.btn-danger{background:rgba(255,107,107,0.08);color:var(--vanta-red);border:1px solid rgba(255,107,107,0.15)}
 .btn-sm{padding:4px 9px;font-size:10.5px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tbl-wrap{overflow-x:auto}
 .tbl{width:100%;border-collapse:collapse}
-.tbl th{text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);padding:9px 11px;
-  text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface3)}
-.tbl td{padding:9px 11px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle}
-.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:9px;
-  font-weight:800;letter-spacing:.05em;text-transform:uppercase}
-.tag-vless{background:var(--gold-dim);color:var(--gold);border:1px solid var(--border)}
-.tag-port{background:rgba(167,139,250,.1);color:#a78bfa;border:1px solid rgba(167,139,250,.2)}
-.tag-on{background:var(--green-dim);color:var(--green);border:1px solid rgba(74,222,128,.2)}
-.tag-off{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.tbl th{text-align:left;font-size:9.5px;font-weight:700;color:var(--vanta-text3);padding:9px 11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--vanta-border);background:var(--vanta-glass2)}
+.tbl td{padding:9px 11px;border-bottom:1px solid var(--vanta-border);font-size:12.5px;vertical-align:middle}
+.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase}
+.tag-vless{background:rgba(255,215,0,0.1);color:var(--vanta-gold);border:1px solid var(--vanta-border)}
+.tag-on{background:rgba(74,222,128,0.1);color:var(--vanta-green);border:1px solid rgba(74,222,128,0.2)}
+.tag-off{background:rgba(255,107,107,0.1);color:var(--vanta-red);border:1px solid rgba(255,107,107,0.2)}
 .pill{display:flex;align-items:center;gap:7px;font-size:11px}
-.pill-used{color:var(--text);font-weight:600}
-.pill-bar{flex:1;height:4px;background:var(--border);border-radius:2px;min-width:40px}
-.pill-fill{height:100%;border-radius:2px;transition:width .4s}
-.pill-lim{color:var(--text3);font-size:10px}
-.toggle{width:32px;height:17px;border-radius:9px;background:var(--surface3);position:relative;
-  cursor:pointer;transition:all .28s;border:1px solid var(--border);flex-shrink:0}
-.toggle::after{content:'';position:absolute;width:11px;height:11px;border-radius:50%;
-  background:var(--text3);top:2px;left:2px;transition:all .28s cubic-bezier(.4,0,.2,1)}
-.toggle.on{background:var(--green);border-color:var(--green);box-shadow:0 0 10px rgba(74,222,128,.3)}
+.pill-used{color:var(--vanta-text);font-weight:600}
+.pill-bar{flex:1;height:4px;background:var(--vanta-border);border-radius:2px;min-width:40px}
+.pill-fill{height:100%;border-radius:2px;transition:width 0.4s}
+.pill-lim{color:var(--vanta-text3);font-size:10px}
+.toggle{width:32px;height:17px;border-radius:9px;background:var(--vanta-dark3);position:relative;cursor:pointer;transition:all 0.28s;border:1px solid var(--vanta-border);flex-shrink:0}
+.toggle::after{content:'';position:absolute;width:11px;height:11px;border-radius:50%;background:var(--vanta-text3);top:2px;left:2px;transition:all 0.28s cubic-bezier(0.4,0,0.2,1)}
+.toggle.on{background:var(--vanta-green);border-color:var(--vanta-green);box-shadow:0 0 10px rgba(74,222,128,0.3)}
 .toggle.on::after{left:17px;background:#fff}
-.sys-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
-.sys-fill{height:100%;border-radius:3px;transition:width .4s}
-.sl-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
-.sl-k{color:var(--text3);font-size:11.5px}
-.sl-v{color:var(--text);font-weight:600;font-size:11.5px}
+.sys-bar{height:6px;background:var(--vanta-border);border-radius:3px;overflow:hidden}
+.sys-fill{height:100%;border-radius:3px;transition:width 0.4s}
+.sl-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vanta-border)}
+.sl-k{color:var(--vanta-text3);font-size:11.5px}
+.sl-v{color:var(--vanta-text);font-weight:600;font-size:11.5px}
 .fg{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
-.fl{font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em}
-.fi,.fs{padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-family:inherit;
-  font-size:12.5px;outline:none;color:var(--text);background:var(--surface);transition:all .2s}
-.fi:focus,.fs:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,215,0,.08)}
+.fl{font-size:9.5px;font-weight:700;color:var(--vanta-text2);text-transform:uppercase;letter-spacing:0.08em}
+.fi,.fs{padding:8px 12px;border-radius:8px;border:1px solid var(--vanta-border);font-family:inherit;font-size:12.5px;outline:none;color:var(--vanta-text);background:var(--vanta-glass2);transition:all 0.2s}
+.fi:focus,.fs:focus{border-color:var(--vanta-purple);box-shadow:0 0 0 3px rgba(108,99,255,0.08)}
 .fr{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
 .fr .fg{margin-bottom:0;flex:1;min-width:90px}
-.act-btn{font-family:inherit;font-size:9.5px;font-weight:700;border-radius:6px;padding:4px 8px;
-  cursor:pointer;display:inline-flex;align-items:center;gap:3px;border:1px solid;transition:all .18s}
-.act-copy{background:var(--gold-dim);color:var(--gold);border-color:var(--border)}
-.act-sub{background:var(--green-dim);color:var(--green);border-color:rgba(74,222,128,.2)}
-.act-qr{background:rgba(167,139,250,.1);color:#a78bfa;border-color:rgba(167,139,250,.2)}
-.act-edit{background:rgba(251,191,36,.08);color:var(--yellow);border-color:rgba(251,191,36,.2)}
-.act-del{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,.18)}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);
-  background:var(--surface);color:var(--gold);border:1px solid var(--border2);border-radius:10px;
-  padding:12px 20px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:999;
-  backdrop-filter:blur(24px);box-shadow:var(--gold-glow)}
+.act-btn{font-family:inherit;font-size:9.5px;font-weight:700;border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border:1px solid;transition:all 0.18s}
+.act-copy{background:rgba(255,215,0,0.08);color:var(--vanta-gold);border-color:var(--vanta-border)}
+.act-sub{background:rgba(74,222,128,0.08);color:var(--vanta-green);border-color:rgba(74,222,128,0.2)}
+.act-qr{background:rgba(167,139,250,0.08);color:#a78bfa;border-color:rgba(167,139,250,0.2)}
+.act-edit{background:rgba(251,191,36,0.08);color:var(--vanta-gold2);border-color:rgba(251,191,36,0.2)}
+.act-del{background:rgba(255,107,107,0.08);color:var(--vanta-red);border-color:rgba(255,107,107,0.18)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--vanta-glass);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);color:var(--vanta-gold);border:1px solid var(--vanta-border2);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;z-index:999;box-shadow:0 0 40px rgba(0,0,0,0.4)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;
-  align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(12px)}
 .mo.show{display:flex}
-.mo-box{background:var(--surface2);border:1px solid var(--border2);border-radius:18px;padding:24px;
-  width:100%;max-width:460px;position:relative;box-shadow:var(--gold-glow);
-  transform:scale(.92);opacity:0;transition:all .38s cubic-bezier(.34,1.56,.64,1)}
+.mo-box{background:var(--vanta-glass);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid var(--vanta-border2);border-radius:18px;padding:24px;width:100%;max-width:460px;position:relative;box-shadow:0 0 60px rgba(0,0,0,0.4);transform:scale(0.92);opacity:0;transition:all 0.38s cubic-bezier(0.34,1.56,0.64,1)}
 .mo.show .mo-box{transform:scale(1);opacity:1}
-.mo-title{font-family:'Cinzel',serif;font-size:14px;font-weight:700;margin-bottom:16px;
-  color:var(--gold);letter-spacing:.06em}
-.mo-close{position:absolute;top:14px;right:14px;background:var(--surface3);border:1px solid var(--border);
-  color:var(--text3);width:30px;height:30px;border-radius:7px;cursor:pointer;display:flex;
-  align-items:center;justify-content:center;font-size:14px}
-.qr-box{text-align:center;padding:20px;background:var(--surface3);border-radius:12px;
-  border:1px solid var(--border);margin-top:12px}
-.qr-box img{max-width:200px;border-radius:8px;border:3px solid var(--border);box-shadow:var(--gold-glow)}
+.mo-title{font-family:'Cinzel',serif;font-size:14px;font-weight:700;margin-bottom:16px;color:var(--vanta-gold);letter-spacing:0.06em}
+.mo-close{position:absolute;top:14px;right:14px;background:var(--vanta-glass2);border:1px solid var(--vanta-border);color:var(--vanta-text3);width:30px;height:30px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.qr-box{text-align:center;padding:20px;background:var(--vanta-glass2);border-radius:12px;border:1px solid var(--vanta-border);margin-top:12px}
+.qr-box img{max-width:200px;border-radius:8px;border:3px solid var(--vanta-border)}
 .tb{display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap}
 .search-wrap{flex:1;min-width:160px;position:relative}
-.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3)}
-.search-wrap input{width:100%;padding:9px 12px 9px 34px;background:var(--surface2);
-  border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;
-  font-family:inherit;outline:none}
-.search-wrap input:focus{border-color:var(--gold)}
-.filter-chips{display:flex;gap:3px;padding:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
-.chip{padding:7px 12px;border-radius:6px;font-size:11.5px;font-weight:700;color:var(--text3);
-  cursor:pointer;border:none;background:none;transition:all .18s;font-family:inherit}
-.chip.active{background:var(--gold);color:#000}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--vanta-text3)}
+.search-wrap input{width:100%;padding:9px 12px 9px 34px;background:var(--vanta-glass2);border:1px solid var(--vanta-border);border-radius:8px;color:var(--vanta-text);font-size:13px;font-family:inherit;outline:none}
+.search-wrap input:focus{border-color:var(--vanta-purple)}
+.filter-chips{display:flex;gap:3px;padding:3px;background:var(--vanta-glass2);border:1px solid var(--vanta-border);border-radius:8px}
+.chip{padding:7px 12px;border-radius:6px;font-size:11.5px;font-weight:700;color:var(--vanta-text3);cursor:pointer;border:none;background:none;transition:all 0.18s;font-family:inherit}
+.chip.active{background:var(--vanta-gold);color:#000}
 .m-cards{display:none;flex-direction:column;gap:12px}
-.m-card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--surface2)}
+.m-card{border:1px solid var(--vanta-border);border-radius:12px;padding:16px;background:var(--vanta-glass2)}
 .m-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .m-card-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
-.empty{text-align:center;padding:36px;color:var(--text3)}
-.mob-hd{display:none;position:fixed;top:0;left:0;right:0;background:var(--surface);
-  border-bottom:1px solid var(--border);z-index:90;align-items:center;justify-content:space-between;
-  backdrop-filter:blur(20px)}
+.empty{text-align:center;padding:36px;color:var(--vanta-text3)}
+.mob-hd{display:none;position:fixed;top:0;left:0;right:0;background:var(--vanta-glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--vanta-border);z-index:90;align-items:center;justify-content:space-between;padding:0 20px;height:65px}
 .mob-tl-group{display:flex;gap:10px;align-items:center;flex-direction:row}
-.logout-mob{display:none;color:var(--red) !important}
-.logout-mob:hover{background:var(--red-dim) !important;border-color:rgba(248,113,113,.3) !important}
-.alerts-box{background:rgba(248,113,113,.08);border:1px dashed rgba(248,113,113,.3);
-  border-radius:12px;padding:14px;margin-bottom:14px;display:none}
-.alerts-title{color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:8px;
-  display:flex;align-items:center;gap:6px}
-.alert-item{font-size:12px;margin-bottom:4px;color:var(--text);display:flex;justify-content:space-between}
-.live-logs-container{background:#000;border:1px solid var(--border);border-radius:8px;padding:12px;
-  font-family:monospace;font-size:11px;color:#FFD700;height:200px;overflow-y:auto;white-space:pre-wrap}
-.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;width:100%}
-.login-box{background:var(--surface2);border:1px solid var(--border2);border-radius:20px;
-  padding:36px 32px;width:100%;max-width:360px;box-shadow:var(--gold-glow)}
-.login-logo{text-align:center;margin-bottom:28px}
-.login-title{font-family:'Cinzel',serif;font-size:22px;font-weight:900;color:var(--gold);letter-spacing:.1em}
-.login-sub{font-size:11px;color:var(--text3);margin-top:6px}
+.logout-mob{display:none;color:var(--vanta-red) !important}
+.logout-mob:hover{background:rgba(255,107,107,0.1) !important;border-color:rgba(255,107,107,0.3) !important}
+.alerts-box{background:rgba(255,107,107,0.08);border:1px dashed rgba(255,107,107,0.3);border-radius:12px;padding:14px;margin-bottom:14px;display:none}
+.alerts-title{color:var(--vanta-red);font-size:12.5px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.alert-item{font-size:12px;margin-bottom:4px;color:var(--vanta-text);display:flex;justify-content:space-between}
+.live-logs-container{background:#000;border:1px solid var(--vanta-border);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:var(--vanta-gold);height:200px;overflow-y:auto;white-space:pre-wrap}
 
-/* Notification styles */
-.notif-item{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);transition:all .2s}
-.notif-item:last-child{border-bottom:none}
-.notif-item:hover{background:var(--surface3)}
-.notif-item.unseen{background:var(--gold-dim)}
-.notif-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
-.notif-icon.update{background:rgba(56,189,248,.12);color:#38bdf8}
-.notif-icon.quota{background:var(--red-dim);color:var(--red)}
-.notif-icon.expiry{background:rgba(251,191,36,.12);color:var(--yellow)}
-.notif-icon.info{background:rgba(74,222,128,.12);color:var(--green)}
-.notif-body{flex:1;min-width:0}
-.notif-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
-.notif-msg{font-size:11px;color:var(--text3);line-height:1.4}
-.notif-time{font-size:10px;color:var(--text3);margin-top:4px}
-.notif-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--gold);text-decoration:none;margin-top:4px}
-.notif-link:hover{text-decoration:underline}
-.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:10px}
-
-/* Gold accent on progress fills */
-.pill-fill-gold{background:linear-gradient(90deg,var(--gold),var(--gold2))}
-
+/* Responsive */
 @media(max-width:768px){
-  .mob-hd{display:flex;height:65px;padding:0 20px}
+  .mob-hd{display:flex}
   .mob-tl-group .lang-btn{font-size:13px;padding:7px 10px;border-radius:8px}
   .theme-toggle{font-size:18px;padding:7px 10px;border-radius:8px}
   .mob-hd span{font-size:22px !important}
-  .sidebar{transform:none !important;width:100% !important;height:78px;top:auto;bottom:0;
-    border-right:none;border-top:1px solid var(--border);flex-direction:row;padding:0;
-    background:var(--surface);box-shadow:0 -4px 20px rgba(0,0,0,.5)}
-  .light-mode .sidebar{box-shadow:0 -4px 20px rgba(0,0,0,.06)}
+  .sidebar{transform:none !important;width:100% !important;height:78px;top:auto;bottom:0;border-right:none;border-top:1px solid var(--vanta-border);flex-direction:row;padding:0;background:var(--vanta-glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 -4px 30px rgba(0,0,0,0.3)}
+  .light-mode .sidebar{box-shadow:0 -4px 30px rgba(0,0,0,0.05)}
   .sb-brand,.sb-bottom{display:none !important}
   .sidebar .sb-social{display:none !important}
   .mob-social{display:flex !important}
@@ -3664,37 +3637,50 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 </style>
 </head>
 <body>
-<div class="bg-fixed"></div>
-<div class="grid-fixed"></div>
-<div class="toast" id="toast"></div>
 
-<!-- LOGIN PAGE -->
-<div id="login-page" style="display:none;width:100%">
-  <div class="login-wrap">
-    <div class="login-box">
+<!-- ===== ANIMATED BACKGROUND ===== -->
+<div class="bg-animated"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+<div class="grid-overlay"></div>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div class="login-page" id="login-page">
+  <div class="login-wrapper">
+    <div class="login-card">
       <div class="login-logo">
-        <svg width="52" height="44" viewBox="0 0 84 68" fill="none">
-          <ellipse cx="42" cy="52" rx="40" ry="11" fill="#4F46E5" opacity=".85"/>
-          <ellipse cx="42" cy="52" rx="40" ry="11" fill="none" stroke="#FFD700" stroke-width="1.4" opacity=".6"/>
-          <path d="M19 50 Q21 22 42 17 Q63 22 65 50" fill="#1e1b4b" stroke="#FFD700" stroke-width="1.4"/>
-          <ellipse cx="42" cy="17" rx="23" ry="5.5" fill="#4F46E5" stroke="#FFD700" stroke-width="1"/>
-          <path d="M20 45 Q21.5 41.5 42 39.5 Q62.5 41.5 64 45" fill="none" stroke="#CC2200" stroke-width="4.5" stroke-linecap="round" opacity=".92"/>
-        </svg>
-        <div class="login-title">VANTA PANEL</div>
-        <div class="login-sub">Enter your password to continue</div>
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+            <polyline points="2 17 12 22 22 17"/>
+            <polyline points="2 12 12 17 22 12"/>
+          </svg>
+        </div>
+        <div class="logo-text">VANTA</div>
+        <div class="logo-sub">Secure Proxy Panel</div>
       </div>
-      <div class="fg">
-        <label class="fl">PASSWORD</label>
-        <input class="fi" type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button class="btn btn-gold" onclick="doLogin()" style="width:100%;justify-content:center;padding:12px;margin-top:6px">LOGIN</button>
-      <div id="login-err" style="color:var(--red);font-size:12px;margin-top:10px;text-align:center;display:none">Invalid password</div>
+      <form class="login-form" id="login-form" onsubmit="event.preventDefault();doLogin()">
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrap">
+            <input class="form-input" type="password" id="login-pw" placeholder="Enter your password..." autofocus>
+            <button type="button" class="input-eye" onclick="togglePassword()" id="eye-btn">👁️</button>
+          </div>
+        </div>
+        <button type="submit" class="login-btn" id="login-btn">Unlock Panel</button>
+        <div class="login-error" id="login-err">❌ Invalid password</div>
+        <div class="login-footer">
+          <div class="footer-links">
+            <a href="https://t.me/Vantahub1792" target="_blank">📢 Channel</a>
+            <a href="https://t.me/kiarash1792" target="_blank">👨‍💻 Developer</a>
+            <a href="https://github.com/VANTA-PROJECT/VANTA_PANEL" target="_blank">🐙 GitHub</a>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard-page" style="display:none;width:100%">
+<!-- ===== DASHBOARD ===== -->
+<div class="dashboard-page" id="dashboard-page">
 
   <!-- MOBILE HEADER -->
   <div class="mob-hd">
@@ -3705,87 +3691,37 @@ body[dir="rtl"]{direction:rtl;text-align:right}
         <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
       </div>
       <div class="mob-social">
-        <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn" title="Telegram Channel">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
-        </a>
-        <a href="https://github.com/VANTA-PROJECT/VANTA_PANEL/tree/main" target="_blank" class="sb-social-btn" title="GitHub">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-        </a>
+        <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg></a>
+        <a href="https://github.com/VANTA-PROJECT/VANTA_PANEL" target="_blank" class="sb-social-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg></a>
       </div>
     </div>
-    <span style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:2px">VANTA</span>
+    <span style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--vanta-gold);letter-spacing:2px">VANTA</span>
   </div>
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sb">
-    <!-- Telegram & GitHub links (above the VANTA logo) -->
     <div class="sb-social" style="padding:10px 8px 0">
-      <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn" title="Telegram Channel">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
-      </a>
-      <a href="https://github.com/VANTA-PROJECT/VANTA_PANEL/tree/main" target="_blank" class="sb-social-btn" title="GitHub">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-      </a>
+      <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg></a>
+      <a href="https://github.com/VANTA-PROJECT/VANTA_PANEL" target="_blank" class="sb-social-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg></a>
     </div>
     <div class="sb-brand">
-      <div class="sb-hat">
-        <svg width="36" height="30" viewBox="0 0 84 68" fill="none">
-          <ellipse cx="42" cy="52" rx="40" ry="11" fill="#4F46E5" opacity=".85"/>
-          <ellipse cx="42" cy="52" rx="40" ry="11" fill="none" stroke="#FFD700" stroke-width="1.4" opacity=".6"/>
-          <path d="M19 50 Q21 22 42 17 Q63 22 65 50" fill="#1e1b4b" stroke="#FFD700" stroke-width="1.4"/>
-          <ellipse cx="42" cy="17" rx="23" ry="5.5" fill="#4F46E5" stroke="#FFD700" stroke-width="1"/>
-          <path d="M20 45 Q21.5 41.5 42 39.5 Q62.5 41.5 64 45" fill="none" stroke="#CC2200" stroke-width="4.5" stroke-linecap="round" opacity=".92"/>
-          <ellipse cx="35" cy="24" rx="5" ry="3" fill="rgba(255,255,255,.1)" transform="rotate(-20 35 24)"/>
-        </svg>
-      </div>
+      <div class="sb-hat"><svg width="36" height="30" viewBox="0 0 84 68" fill="none"><ellipse cx="42" cy="52" rx="40" ry="11" fill="#4F46E5" opacity=".85"/><ellipse cx="42" cy="52" rx="40" ry="11" fill="none" stroke="#FFD700" stroke-width="1.4" opacity=".6"/><path d="M19 50 Q21 22 42 17 Q63 22 65 50" fill="#1e1b4b" stroke="#FFD700" stroke-width="1.4"/><ellipse cx="42" cy="17" rx="23" ry="5.5" fill="#4F46E5" stroke="#FFD700" stroke-width="1"/><path d="M20 45 Q21.5 41.5 42 39.5 Q62.5 41.5 64 45" fill="none" stroke="#CC2200" stroke-width="4.5" stroke-linecap="round" opacity=".92"/><ellipse cx="35" cy="24" rx="5" ry="3" fill="rgba(255,255,255,.1)" transform="rotate(-20 35 24)"/></svg></div>
       <div class="sb-title">VANTA</div>
     </div>
     <nav class="sb-nav">
-      <button class="nav-item active" data-page="dashboard">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span>
-      </button>
-      <button class="nav-item" data-page="inbounds">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
-        <span class="nav-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</span>
-        <span class="nav-badge" id="nb">0</span>
-      </button>
-      <button class="nav-item" data-page="traffic">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        <span class="nav-label" data-en="Traffic" data-fa="ترافیک">Traffic</span>
-      </button>
-      <button class="nav-item" data-page="addresses">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-        <span class="nav-label" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</span>
-      </button>
-      <button class="nav-item" data-page="notifications">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-        <span class="nav-label" data-en="Notifications" data-fa="اعلانات">Notifications</span>
-        <span class="nav-badge" id="notif-badge" style="display:none">0</span>
-      </button>
-      <button class="nav-item" data-page="security">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-        <span class="nav-label" data-en="Security" data-fa="امنیت">Security</span>
-      </button>
-      <button class="nav-item" data-page="settings">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        <span class="nav-label" data-en="Settings" data-fa="تنظیمات">Settings</span>
-      </button>
-      <button class="nav-item logout-mob" onclick="doLogout()">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span class="nav-label" data-en="Logout" data-fa="خروج">Logout</span>
-      </button>
+      <button class="nav-item active" data-page="dashboard"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span></button>
+      <button class="nav-item" data-page="inbounds"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg><span class="nav-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</span><span class="nav-badge" id="nb">0</span></button>
+      <button class="nav-item" data-page="traffic"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="nav-label" data-en="Traffic" data-fa="ترافیک">Traffic</span></button>
+      <button class="nav-item" data-page="addresses"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg><span class="nav-label" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</span></button>
+      <button class="nav-item" data-page="notifications"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="nav-label" data-en="Notifications" data-fa="اعلانات">Notifications</span><span class="nav-badge" id="notif-badge" style="display:none">0</span></button>
+      <button class="nav-item" data-page="security"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span class="nav-label" data-en="Security" data-fa="امنیت">Security</span></button>
+      <button class="nav-item" data-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span class="nav-label" data-en="Settings" data-fa="تنظیمات">Settings</span></button>
+      <button class="nav-item logout-mob" onclick="doLogout()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span class="nav-label" data-en="Logout" data-fa="خروج">Logout</span></button>
     </nav>
     <div class="sb-bottom">
       <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-desk" style="margin-bottom:4px;font-size:12px">🌙 Theme</button>
-      <div class="lang-row">
-        <button class="lang-btn lang-en active" onclick="setLang('en')">EN</button>
-        <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
-      </div>
-      <button class="logout-btn" onclick="doLogout()" style="margin-top:2px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span data-en="Logout" data-fa="خروج">Logout</span>
-      </button>
+      <div class="lang-row"><button class="lang-btn lang-en active" onclick="setLang('en')">EN</button><button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button></div>
+      <button class="logout-btn" onclick="doLogout()" style="margin-top:2px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span data-en="Logout" data-fa="خروج">Logout</span></button>
     </div>
   </aside>
 
@@ -3794,21 +3730,8 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 
     <!-- Dashboard -->
     <section class="page active" id="page-dashboard">
-      <div class="page-header">
-        <div>
-          <div class="page-title" data-en="Dashboard" data-fa="داشبورد">Dashboard</div>
-          <div class="page-sub" id="last-up">-</div>
-        </div>
-      </div>
-
-      <div class="alerts-box" id="alerts-box">
-        <div class="alerts-title">
-          <span>⚠️</span>
-          <span data-en="SYSTEM WARNINGS" data-fa="هشدارهای سیستم">SYSTEM WARNINGS</span>
-        </div>
-        <div id="alerts-list"></div>
-      </div>
-
+      <div class="page-header"><div><div class="page-title" data-en="Dashboard" data-fa="داشبورد">Dashboard</div><div class="page-sub" id="last-up">-</div></div></div>
+      <div class="alerts-box" id="alerts-box"><div class="alerts-title"><span>⚠️</span><span data-en="SYSTEM WARNINGS" data-fa="هشدارهای سیستم">SYSTEM WARNINGS</span></div><div id="alerts-list"></div></div>
       <div class="stats-row">
         <div class="stat-card" style="animation-delay:.08s"><div class="stat-label" data-en="Traffic" data-fa="ترافیک">Traffic</div><div class="stat-val" id="sv-traffic">-<span class="stat-unit"> MB</span></div></div>
         <div class="stat-card" style="animation-delay:.16s"><div class="stat-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</div><div class="stat-val" id="sv-links">-</div></div>
@@ -3816,1216 +3739,141 @@ body[dir="rtl"]{direction:rtl;text-align:right}
         <div class="stat-card" style="animation-delay:.32s"><div class="stat-label" data-en="Domain" data-fa="دامنه">Domain</div><div class="stat-val" id="sv-domain" style="font-size:10px;word-break:break-all;font-weight:500">-</div></div>
       </div>
       <div class="grid-2">
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="CPU" data-fa="پردازنده">CPU</div><span id="cpu-v" style="font-size:17px;font-weight:700;color:var(--gold)">-%</span></div>
-          <div class="sys-bar"><div class="sys-fill" id="cpu-b" style="background:var(--indigo)"></div></div>
-        </div>
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="Memory" data-fa="حافظه">Memory</div><span id="mem-v" style="font-size:17px;font-weight:700;color:var(--green)">-%</span></div>
-          <div class="sys-bar"><div class="sys-fill" id="mem-b" style="background:var(--green)"></div></div>
-        </div>
+        <div class="card"><div class="card-hd"><div class="card-title" data-en="CPU" data-fa="پردازنده">CPU</div><span id="cpu-v" style="font-size:17px;font-weight:700;color:var(--vanta-gold)">-%</span></div><div class="sys-bar"><div class="sys-fill" id="cpu-b" style="background:var(--vanta-purple)"></div></div></div>
+        <div class="card"><div class="card-hd"><div class="card-title" data-en="Memory" data-fa="حافظه">Memory</div><span id="mem-v" style="font-size:17px;font-weight:700;color:var(--vanta-green)">-%</span></div><div class="sys-bar"><div class="sys-fill" id="mem-b" style="background:var(--vanta-green)"></div></div></div>
       </div>
-      <div class="card">
-        <div class="card-hd"><div class="card-title" data-en="Hourly Traffic" data-fa="ترافیک ساعتی">Hourly Traffic</div></div>
-        <div class="chart-container"><canvas id="tc"></canvas></div>
-      </div>
+      <div class="card"><div class="card-hd"><div class="card-title" data-en="Hourly Traffic" data-fa="ترافیک ساعتی">Hourly Traffic</div></div><div class="chart-container"><canvas id="tc"></canvas></div></div>
     </section>
 
     <!-- Inbounds -->
     <section class="page" id="page-inbounds">
-      <div class="page-header">
-        <div>
-          <div class="page-title" data-en="Inbounds" data-fa="اینباندها">Inbounds</div>
-          <div class="page-sub" data-en="VLESS over WebSocket · TLS" data-fa="VLESS روی WebSocket با TLS">VLESS over WebSocket · TLS</div>
-        </div>
-        <button class="btn btn-gold" onclick="showAddMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button>
-      </div>
-      <div class="tb">
-        <div class="search-wrap">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input id="srch" data-ph-en="Search name…" data-ph-fa="جستجوی نام…" placeholder="Search name…" oninput="filterLinks()">
-        </div>
-        <div class="filter-chips">
-          <button class="chip active" data-filter="all" onclick="setFilter('all',this)" data-en="All" data-fa="همه">All</button>
-          <button class="chip" data-filter="active" onclick="setFilter('active',this)" data-en="Active" data-fa="فعال">Active</button>
-          <button class="chip" data-filter="off" onclick="setFilter('off',this)" data-en="Off" data-fa="غیرفعال">Off</button>
-        </div>
-      </div>
-      <div class="card" style="padding:0;overflow:hidden">
-        <div class="tbl-wrap">
-          <table class="tbl">
-            <thead><tr>
-              <th>#</th>
-              <th data-en="Name" data-fa="نام">Name</th>
-              <th data-en="Type" data-fa="نوع">Type</th>
-              <th data-en="Usage" data-fa="مصرف">Usage</th>
-              <th data-en="IPs" data-fa="آی‌پی">IPs</th>
-              <th data-en="Expiry" data-fa="انقضا">Expiry</th>
-              <th data-en="Status" data-fa="وضعیت">Status</th>
-              <th data-en="Actions" data-fa="عملیات">Actions</th>
-            </tr></thead>
-            <tbody id="ltb"></tbody>
-          </table>
-        </div>
-        <div class="m-cards" id="mcards"></div>
-        <div class="empty" id="lempty" style="display:none" data-en="No inbounds found" data-fa="هیچ اینباندی یافت نشد">No inbounds found</div>
-      </div>
+      <div class="page-header"><div><div class="page-title" data-en="Inbounds" data-fa="اینباندها">Inbounds</div><div class="page-sub" data-en="VLESS over WebSocket · TLS" data-fa="VLESS روی WebSocket با TLS">VLESS over WebSocket · TLS</div></div><button class="btn btn-gold" onclick="showAddMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button></div>
+      <div class="tb"><div class="search-wrap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="srch" data-ph-en="Search name…" data-ph-fa="جستجوی نام…" placeholder="Search name…" oninput="filterLinks()"></div><div class="filter-chips"><button class="chip active" data-filter="all" onclick="setFilter('all',this)" data-en="All" data-fa="همه">All</button><button class="chip" data-filter="active" onclick="setFilter('active',this)" data-en="Active" data-fa="فعال">Active</button><button class="chip" data-filter="off" onclick="setFilter('off',this)" data-en="Off" data-fa="غیرفعال">Off</button></div></div>
+      <div class="card" style="padding:0;overflow:hidden"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th data-en="Name" data-fa="نام">Name</th><th data-en="Type" data-fa="نوع">Type</th><th data-en="Usage" data-fa="مصرف">Usage</th><th data-en="IPs" data-fa="آی‌پی">IPs</th><th data-en="Expiry" data-fa="انقضا">Expiry</th><th data-en="Status" data-fa="وضعیت">Status</th><th data-en="Actions" data-fa="عملیات">Actions</th></tr></thead><tbody id="ltb"></tbody></table></div><div class="m-cards" id="mcards"></div><div class="empty" id="lempty" style="display:none" data-en="No inbounds found" data-fa="هیچ اینباندی یافت نشد">No inbounds found</div></div>
     </section>
 
     <!-- Traffic -->
     <section class="page" id="page-traffic">
       <div class="page-header"><div><div class="page-title" data-en="Traffic" data-fa="ترافیک">Traffic</div><div class="page-sub" data-en="Statistics & Inbound comparison" data-fa="آمار و مقایسه مصرف کاربران">Statistics & Inbound comparison</div></div></div>
-      <div class="grid-2" style="margin-bottom:14px">
-        <div class="card">
-          <div class="sl-item"><span class="sl-k" data-en="Total Traffic" data-fa="کل ترافیک">Total Traffic</span><span class="sl-v" id="t-tr">-</span></div>
-          <div class="sl-item"><span class="sl-k" data-en="Total Requests" data-fa="کل درخواست‌ها">Total Requests</span><span class="sl-v" id="t-rq">-</span></div>
-          <div class="sl-item"><span class="sl-k" data-en="Uptime" data-fa="آپتایم">Uptime</span><span class="sl-v" id="t-up">-</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="Inbound Traffic Share" data-fa="سهم ترافیک کاربران">Inbound Traffic Share</div></div>
-          <div class="chart-container"><canvas id="inbound-chart"></canvas></div>
-        </div>
-      </div>
+      <div class="grid-2" style="margin-bottom:14px"><div class="card"><div class="sl-item"><span class="sl-k" data-en="Total Traffic" data-fa="کل ترافیک">Total Traffic</span><span class="sl-v" id="t-tr">-</span></div><div class="sl-item"><span class="sl-k" data-en="Total Requests" data-fa="کل درخواست‌ها">Total Requests</span><span class="sl-v" id="t-rq">-</span></div><div class="sl-item"><span class="sl-k" data-en="Uptime" data-fa="آپتایم">Uptime</span><span class="sl-v" id="t-up">-</span></div></div><div class="card"><div class="card-hd"><div class="card-title" data-en="Inbound Traffic Share" data-fa="سهم ترافیک کاربران">Inbound Traffic Share</div></div><div class="chart-container"><canvas id="inbound-chart"></canvas></div></div></div>
     </section>
 
     <!-- Notifications -->
     <section class="page" id="page-notifications">
-      <div class="page-header">
-        <div><div class="page-title" data-en="Notifications" data-fa="اعلانات">Notifications</div><div class="page-sub" data-en="Updates, alerts & system messages" data-fa="بروزرسانی‌ها، هشدارها و پیام‌های سیستم">Updates, alerts & system messages</div></div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-sm" onclick="markAllSeen()" data-en="Mark all read" data-fa="خوانده شدن همه">Mark all read</button>
-          <button class="btn btn-danger btn-sm" onclick="clearNotifs()" data-en="Clear all" data-fa="حذف همه">Clear all</button>
-        </div>
-      </div>
-      <div class="card" style="padding:0;overflow:hidden">
-        <div id="notif-list" style="padding:4px 0">
-          <div class="empty" data-en="No notifications" data-fa="هیچ اعلانی وجود ندارد">No notifications</div>
-        </div>
-      </div>
+      <div class="page-header"><div><div class="page-title" data-en="Notifications" data-fa="اعلانات">Notifications</div><div class="page-sub" data-en="Updates, alerts & system messages" data-fa="بروزرسانی‌ها، هشدارها و پیام‌های سیستم">Updates, alerts & system messages</div></div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="markAllSeen()" data-en="Mark all read" data-fa="خوانده شدن همه">Mark all read</button><button class="btn btn-danger btn-sm" onclick="clearNotifs()" data-en="Clear all" data-fa="حذف همه">Clear all</button></div></div>
+      <div class="card" style="padding:0;overflow:hidden"><div id="notif-list" style="padding:4px 0"><div class="empty" data-en="No notifications" data-fa="هیچ اعلانی وجود ندارد">No notifications</div></div></div>
     </section>
 
     <!-- Clean IP -->
     <section class="page" id="page-addresses">
-      <div class="page-header">
-        <div><div class="page-title" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</div><div class="page-sub" data-en="Subscription alternative addresses" data-fa="آدرس‌های جایگزین اشتراک">Subscription alternative addresses</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-ghost" onclick="importAddrs('railway')" data-en="🚄 Railway IP" data-fa="🚄 آی‌پی ریلوی">🚄 Railway IP</button>
-          <button class="btn btn-danger" onclick="delAllAddrs()" data-en="Delete All" data-fa="پاک کردن همه">Delete All</button>
-          <button class="btn btn-gold" onclick="showAddAddrMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button>
-        </div>
-      </div>
-      <div class="card">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px" data-en="Add your own clean IPs or import from Railway/Cloudflare" data-fa="آی‌پی‌های تمیز خودت رو اضافه کن یا از Railway/Cloudflare ایمپورت کن">Add your own clean IPs or import from Railway/Cloudflare</div>
-        <div id="addr-list"></div>
-      </div>
+      <div class="page-header"><div><div class="page-title" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</div><div class="page-sub" data-en="Subscription alternative addresses" data-fa="آدرس‌های جایگزین اشتراک">Subscription alternative addresses</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost" onclick="importAddrs('railway')" data-en="🚄 Railway IP" data-fa="🚄 آی‌پی ریلوی">🚄 Railway IP</button><button class="btn btn-danger" onclick="delAllAddrs()" data-en="Delete All" data-fa="پاک کردن همه">Delete All</button><button class="btn btn-gold" onclick="showAddAddrMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button></div></div>
+      <div class="card"><div style="font-size:12px;color:var(--vanta-text3);margin-bottom:12px" data-en="Add your own clean IPs or import from Railway/Cloudflare" data-fa="آی‌پی‌های تمیز خودت رو اضافه کن یا از Railway/Cloudflare ایمپورت کن">Add your own clean IPs or import from Railway/Cloudflare</div><div id="addr-list"></div></div>
     </section>
 
     <!-- Security & Settings -->
     <section class="page" id="page-security">
       <div class="page-header"><div><div class="page-title" data-en="Security & Settings" data-fa="امنیت و تنظیمات">Security & Settings</div><div class="page-sub" data-en="Settings, Password & Live logs" data-fa="تنظیمات، تغییر رمز پنل و لاگ‌های زنده">Settings, Password & Live logs</div></div></div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="Telegram Bot Settings" data-fa="تنظیمات ربات تلگرام">Telegram Bot Settings</div></div>
-          <div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="tg-token" placeholder="123456:ABC-DEF..."></div>
-          <div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="tg-admin-id" placeholder="987654321"></div>
-          <button class="btn btn-gold" onclick="saveSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save & Restart Bot" data-fa="ذخیره و ریستارت ربات">Save & Restart Bot</button>
-        </div>
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="Change Password" data-fa="تغییر رمز عبور">Change Password</div></div>
-          <div class="fg"><label class="fl" data-en="Current Password" data-fa="رمز فعلی">Current Password</label><input class="fi" type="password" id="cpw" placeholder="Current password"></div>
-          <div class="fg"><label class="fl" data-en="New Password" data-fa="رمز جدید">New Password</label><input class="fi" type="password" id="npw" placeholder="Min 4 chars"></div>
-          <button class="btn btn-gold" onclick="chgPw()" style="margin-top:10px;width:100%;justify-content:center" data-en="Update Password" data-fa="بروزرسانی رمز">Update Password</button>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <div class="card-hd"><div class="card-title" data-en="Live Logs" data-fa="لاگ‌های زنده">Live Logs</div></div>
-        <div class="live-logs-container" id="log-container">Connecting to live logs...</div>
-      </div>
+      <div class="grid-2"><div class="card"><div class="card-hd"><div class="card-title" data-en="Telegram Bot Settings" data-fa="تنظیمات ربات تلگرام">Telegram Bot Settings</div></div><div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="tg-token" placeholder="123456:ABC-DEF..."></div><div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="tg-admin-id" placeholder="987654321"></div><button class="btn btn-gold" onclick="saveSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save & Restart Bot" data-fa="ذخیره و ریستارت ربات">Save & Restart Bot</button></div><div class="card"><div class="card-hd"><div class="card-title" data-en="Change Password" data-fa="تغییر رمز عبور">Change Password</div></div><div class="fg"><label class="fl" data-en="Current Password" data-fa="رمز فعلی">Current Password</label><input class="fi" type="password" id="cpw" placeholder="Current password"></div><div class="fg"><label class="fl" data-en="New Password" data-fa="رمز جدید">New Password</label><input class="fi" type="password" id="npw" placeholder="Min 4 chars"></div><button class="btn btn-gold" onclick="chgPw()" style="margin-top:10px;width:100%;justify-content:center" data-en="Update Password" data-fa="بروزرسانی رمز">Update Password</button></div></div>
+      <div class="card" style="margin-top:14px"><div class="card-hd"><div class="card-title" data-en="Live Logs" data-fa="لاگ‌های زنده">Live Logs</div></div><div class="live-logs-container" id="log-container">Connecting to live logs...</div></div>
     </section>
 
     <!-- Settings -->
     <section class="page" id="page-settings">
       <div class="page-header"><div><div class="page-title" data-en="Settings" data-fa="تنظیمات">Settings</div><div class="page-sub" data-en="Railway Permanent Database & Preferences" data-fa="دیتابیس دائمی Railway و تنظیمات">Railway Permanent Database & Preferences</div></div></div>
-
-      <!-- Permanent Database -->
-      <div class="card" style="border:1px solid rgba(129,140,248,0.25)">
-        <div class="card-hd">
-          <div class="card-title" style="color:#818cf8">💾 <span data-en="Permanent Database" data-fa="دیتابیس دائمی">Permanent Database</span></div>
-          <span id="rdb-status" style="font-size:11px;color:var(--text3)">-</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5" data-en="Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage." data-fa="به Railway متصل شوید، یک پروژه انتخاب کنید و مطمئن شوید یک volume پایدار در مسیر /data وجود دارد.">
-          Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage.
-        </div>
-        <div class="fg">
-          <label class="fl" data-en="Railway Token" data-fa="توکن Railway">Railway Token</label>
-          <div style="display:flex;gap:8px">
-            <input class="fi" type="password" id="rw-token" placeholder="rly_..." style="flex:1">
-            <button class="btn btn-ghost btn-sm" onclick="fetchRailwayProjects()" id="rw-fetch-btn" data-en="Fetch" data-fa="دریافت">Fetch</button>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl" data-en="Project" data-fa="پروژه">Project</label>
-          <select class="fs" id="rw-project" disabled>
-            <option value="" data-en="-- Select a project --" data-fa="-- پروژه را انتخاب کنید --">-- Select a project --</option>
-          </select>
-        </div>
-        <div class="fg" id="rw-volume-info" style="display:none">
-          <div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:8px;border:1px solid var(--border)" id="rw-volume-box">
-            <span id="rw-volume-icon" style="font-size:20px">❓</span>
-            <div>
-              <div id="rw-volume-title" style="font-weight:600;font-size:13px">-</div>
-              <div id="rw-volume-desc" style="font-size:11px;color:var(--text3);margin-top:2px">-</div>
-            </div>
-            <button class="btn btn-gold btn-sm" id="rw-create-btn" style="margin-left:auto;display:none" onclick="createRailwayVolume()" data-en="Create Volume" data-fa="ایجاد Volume">Create Volume</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bot Settings (moved here too) -->
-      <div class="card">
-        <div class="card-hd"><div class="card-title" data-en="Telegram Bot" data-fa="ربات تلگرام">Telegram Bot</div></div>
-        <div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="rw-tg-token" placeholder="123456:ABC-DEF..."></div>
-        <div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="rw-tg-admin" placeholder="987654321"></div>
-        <div class="fg" style="display:flex;align-items:center;gap:8px;margin-top:4px">
-          <input type="checkbox" id="rw-tg-notify-conn" style="width:16px;height:16px;accent-color:var(--gold)">
-          <label for="rw-tg-notify-conn" style="font-size:12px;cursor:pointer" data-en="Notify on every connect / disconnect" data-fa="اعلان هر ورود و خروج (اتصال و قطع اتصال) کاربران">Notify on every connect / disconnect</label>
-        </div>
-        <button class="btn btn-gold" onclick="saveAllSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save All Settings" data-fa="ذخیره همه تنظیمات">Save All Settings</button>
-      </div>
+      <div class="card" style="border:1px solid rgba(108,99,255,0.25)"><div class="card-hd"><div class="card-title" style="color:#818cf8">💾 <span data-en="Permanent Database" data-fa="دیتابیس دائمی">Permanent Database</span></div><span id="rdb-status" style="font-size:11px;color:var(--vanta-text3)">-</span></div><div style="font-size:11px;color:var(--vanta-text3);margin-bottom:12px;line-height:1.5" data-en="Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage." data-fa="به Railway متصل شوید، یک پروژه انتخاب کنید و مطمئن شوید یک volume پایدار در مسیر /data وجود دارد.">Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage.</div><div class="fg"><label class="fl" data-en="Railway Token" data-fa="توکن Railway">Railway Token</label><div style="display:flex;gap:8px"><input class="fi" type="password" id="rw-token" placeholder="rly_..." style="flex:1"><button class="btn btn-ghost btn-sm" onclick="fetchRailwayProjects()" id="rw-fetch-btn" data-en="Fetch" data-fa="دریافت">Fetch</button></div></div><div class="fg"><label class="fl" data-en="Project" data-fa="پروژه">Project</label><select class="fs" id="rw-project" disabled><option value="" data-en="-- Select a project --" data-fa="-- پروژه را انتخاب کنید --">-- Select a project --</option></select></div><div class="fg" id="rw-volume-info" style="display:none"><div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:8px;border:1px solid var(--vanta-border)" id="rw-volume-box"><span id="rw-volume-icon" style="font-size:20px">❓</span><div><div id="rw-volume-title" style="font-weight:600;font-size:13px">-</div><div id="rw-volume-desc" style="font-size:11px;color:var(--vanta-text3);margin-top:2px">-</div></div><button class="btn btn-gold btn-sm" id="rw-create-btn" style="margin-left:auto;display:none" onclick="createRailwayVolume()" data-en="Create Volume" data-fa="ایجاد Volume">Create Volume</button></div></div></div>
+      <div class="card"><div class="card-hd"><div class="card-title" data-en="Telegram Bot" data-fa="ربات تلگرام">Telegram Bot</div></div><div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="rw-tg-token" placeholder="123456:ABC-DEF..."></div><div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="rw-tg-admin" placeholder="987654321"></div><div class="fg" style="display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" id="rw-tg-notify-conn" style="width:16px;height:16px;accent-color:var(--vanta-gold)"><label for="rw-tg-notify-conn" style="font-size:12px;cursor:pointer" data-en="Notify on every connect / disconnect" data-fa="اعلان هر ورود و خروج (اتصال و قطع اتصال) کاربران">Notify on every connect / disconnect</label></div><button class="btn btn-gold" onclick="saveAllSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save All Settings" data-fa="ذخیره همه تنظیمات">Save All Settings</button></div>
     </section>
 
   </main>
 </div>
 
 <!-- Modals -->
-<div class="mo" id="mo-add" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="mo-box">
-    <button class="mo-close" onclick="document.getElementById('mo-add').classList.remove('show')">✕</button>
-    <div class="mo-title" data-en="ADD INBOUND" data-fa="افزودن اینباند">ADD INBOUND</div>
-    <div class="fg"><label class="fl" data-en="Remark" data-fa="توضیح">Remark</label><input class="fi" id="nl" data-ph-en="e.g. User 1" data-ph-fa="مثلاً کاربر ۱" placeholder="e.g. User 1"></div>
-    <div class="fr">
-      <div class="fg"><label class="fl" data-en="Traffic Limit" data-fa="محدودیت ترافیک">Traffic Limit</label><input class="fi" id="nv" type="number" min="0" step=".1" placeholder="0 = ∞"></div>
-      <div class="fg" style="max-width:100px"><label class="fl" data-en="Unit" data-fa="واحد">Unit</label><select class="fs" id="nu"><option>GB</option></select></div>
-    </div>
-    <div class="fg"><label class="fl" data-en="Max IPs" data-fa="حداکثر آی‌پی">Max IPs</label><input class="fi" id="nc" type="number" min="0" placeholder="0 = ∞"></div>
-    <div class="fg"><label class="fl" data-en="Days Valid" data-fa="روزهای اعتبار">Days Valid</label><input class="fi" id="nd" type="number" min="0" placeholder="0 = No expiry"></div>
-    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:4px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <input type="checkbox" id="n_vless_enabled" checked style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('n','vless')">
-        <label for="n_vless_enabled" style="font-weight:700;cursor:pointer">VLESS</label>
-      </div>
-      <div id="n_vless_box">
-        <div class="fr">
-          <div class="fg">
-            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
-            <select class="fs" id="n_vless_transport" onchange="syncAlpnDefault('vless','n_vless_transport','n_vless_alpn')">
-              <option value="ws">WebSocket</option>
-              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
-              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
-            </select>
-          </div>
-          <div class="fg">
-            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
-            <select class="fs" id="n_vless_fp">
-              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
-              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
-              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
-            </select>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
-          <select class="fs" id="n_vless_alpn">
-            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
-            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <input type="checkbox" id="n_trojan_enabled" style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('n','trojan')">
-        <label for="n_trojan_enabled" style="font-weight:700;cursor:pointer">Trojan</label>
-      </div>
-      <div id="n_trojan_box" style="display:none">
-        <div class="fr">
-          <div class="fg">
-            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
-            <select class="fs" id="n_trojan_transport" onchange="syncAlpnDefault('trojan','n_trojan_transport','n_trojan_alpn')">
-              <option value="ws">WebSocket</option>
-              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
-              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
-            </select>
-          </div>
-          <div class="fg">
-            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
-            <select class="fs" id="n_trojan_fp">
-              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
-              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
-              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
-            </select>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
-          <select class="fs" id="n_trojan_alpn">
-            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
-            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="fg" style="opacity:.6">
-      <label class="fl" data-en="Port" data-fa="پورت">Port</label>
-      <input class="fi" value="443" readonly style="cursor:not-allowed">
-    </div>
-    <button class="btn btn-gold" onclick="createLink()" style="width:100%;justify-content:center;margin-top:12px;padding:12px" data-en="CREATE" data-fa="ایجاد">CREATE</button>
-  </div>
-</div>
+<div class="mo" id="mo-add" onclick="if(event.target===this)this.classList.remove('show')"><div class="mo-box"><button class="mo-close" onclick="document.getElementById('mo-add').classList.remove('show')">✕</button><div class="mo-title" data-en="ADD INBOUND" data-fa="افزودن اینباند">ADD INBOUND</div><div class="fg"><label class="fl" data-en="Remark" data-fa="توضیح">Remark</label><input class="fi" id="nl" data-ph-en="e.g. User 1" data-ph-fa="مثلاً کاربر ۱" placeholder="e.g. User 1"></div><div class="fr"><div class="fg"><label class="fl" data-en="Traffic Limit" data-fa="محدودیت ترافیک">Traffic Limit</label><input class="fi" id="nv" type="number" min="0" step=".1" placeholder="0 = ∞"></div><div class="fg" style="max-width:100px"><label class="fl" data-en="Unit" data-fa="واحد">Unit</label><select class="fs" id="nu"><option>GB</option></select></div></div><div class="fg"><label class="fl" data-en="Max IPs" data-fa="حداکثر آی‌پی">Max IPs</label><input class="fi" id="nc" type="number" min="0" placeholder="0 = ∞"></div><div class="fg"><label class="fl" data-en="Days Valid" data-fa="روزهای اعتبار">Days Valid</label><input class="fi" id="nd" type="number" min="0" placeholder="0 = No expiry"></div><div class="fg" style="border:1px solid var(--vanta-border);border-radius:10px;padding:10px 12px;margin-top:4px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="n_vless_enabled" checked style="width:16px;height:16px;accent-color:var(--vanta-gold)" onchange="toggleVariantBox('n','vless')"><label for="n_vless_enabled" style="font-weight:700;cursor:pointer">VLESS</label></div><div id="n_vless_box"><div class="fr"><div class="fg"><label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label><select class="fs" id="n_vless_transport" onchange="syncAlpnDefault('vless','n_vless_transport','n_vless_alpn')"><option value="ws">WebSocket</option><option value="xhttp-packet-up">XHTTP (packet-up)</option><option value="xhttp-stream-up">XHTTP (stream-up)</option></select></div><div class="fg"><label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label><select class="fs" id="n_vless_fp"><option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option><option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option><option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option></select></div></div><div class="fg"><label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label><select class="fs" id="n_vless_alpn"><option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option><option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option></select></div></div></div><div class="fg" style="border:1px solid var(--vanta-border);border-radius:10px;padding:10px 12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="n_trojan_enabled" style="width:16px;height:16px;accent-color:var(--vanta-gold)" onchange="toggleVariantBox('n','trojan')"><label for="n_trojan_enabled" style="font-weight:700;cursor:pointer">Trojan</label></div><div id="n_trojan_box" style="display:none"><div class="fr"><div class="fg"><label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label><select class="fs" id="n_trojan_transport" onchange="syncAlpnDefault('trojan','n_trojan_transport','n_trojan_alpn')"><option value="ws">WebSocket</option><option value="xhttp-packet-up">XHTTP (packet-up)</option><option value="xhttp-stream-up">XHTTP (stream-up)</option></select></div><div class="fg"><label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label><select class="fs" id="n_trojan_fp"><option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option><option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option><option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option></select></div></div><div class="fg"><label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label><select class="fs" id="n_trojan_alpn"><option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option><option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option></select></div></div></div><div class="fg" style="opacity:.6"><label class="fl" data-en="Port" data-fa="پورت">Port</label><input class="fi" value="443" readonly style="cursor:not-allowed"></div><button class="btn btn-gold" onclick="createLink()" style="width:100%;justify-content:center;margin-top:12px;padding:12px" data-en="CREATE" data-fa="ایجاد">CREATE</button></div></div>
 
-<div class="mo" id="mo-edit" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="mo-box">
-    <button class="mo-close" onclick="document.getElementById('mo-edit').classList.remove('show')">✕</button>
-    <div class="mo-title" id="et">EDIT INBOUND</div>
-    <input type="hidden" id="eu">
-    <div class="fg"><label class="fl" data-en="Name" data-fa="نام">Name</label><input class="fi" id="en2" readonly style="opacity:.5;cursor:not-allowed"></div>
-    <div class="fr">
-      <div class="fg"><label class="fl" data-en="Traffic Limit" data-fa="محدودیت ترافیک">Traffic Limit</label><input class="fi" id="el" type="number" min="0" step=".1" placeholder="0 = ∞"></div>
-      <div class="fg" style="max-width:100px"><label class="fl" data-en="Unit" data-fa="واحد">Unit</label><select class="fs" id="eu2"><option>GB</option></select></div>
-    </div>
-    <div class="fg"><label class="fl" data-en="Max IPs" data-fa="حداکثر آی‌پی">Max IPs</label><input class="fi" id="ec" type="number" min="0" placeholder="0 = ∞"></div>
-    <div class="fg"><label class="fl" data-en="Extend Days" data-fa="افزایش روزها">Extend Days</label><input class="fi" id="ed" type="number" min="0" placeholder="0 = no change"></div>
-    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:4px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <input type="checkbox" id="e_vless_enabled" style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('e','vless')">
-        <label for="e_vless_enabled" style="font-weight:700;cursor:pointer">VLESS</label>
-      </div>
-      <div id="e_vless_box">
-        <div class="fr">
-          <div class="fg">
-            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
-            <select class="fs" id="e_vless_transport" onchange="syncAlpnDefault('vless','e_vless_transport','e_vless_alpn')">
-              <option value="ws">WebSocket</option>
-              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
-              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
-            </select>
-          </div>
-          <div class="fg">
-            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
-            <select class="fs" id="e_vless_fp">
-              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
-              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
-              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
-            </select>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
-          <select class="fs" id="e_vless_alpn">
-            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
-            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <input type="checkbox" id="e_trojan_enabled" style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('e','trojan')">
-        <label for="e_trojan_enabled" style="font-weight:700;cursor:pointer">Trojan</label>
-      </div>
-      <div id="e_trojan_box" style="display:none">
-        <div class="fr">
-          <div class="fg">
-            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
-            <select class="fs" id="e_trojan_transport" onchange="syncAlpnDefault('trojan','e_trojan_transport','e_trojan_alpn')">
-              <option value="ws">WebSocket</option>
-              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
-              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
-            </select>
-          </div>
-          <div class="fg">
-            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
-            <select class="fs" id="e_trojan_fp">
-              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
-              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
-              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
-            </select>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
-          <select class="fs" id="e_trojan_alpn">
-            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
-            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="fg" style="opacity:.6">
-      <label class="fl" data-en="Port" data-fa="پورت">Port</label>
-      <input class="fi" value="443" readonly style="cursor:not-allowed">
-    </div>
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn btn-gold" onclick="saveEdit()" style="flex:1;justify-content:center;padding:12px" data-en="SAVE" data-fa="ذخیره">SAVE</button>
-      <button class="btn btn-danger" onclick="resetTraf()" style="padding:12px" data-en="Reset" data-fa="بازنشانی">Reset</button>
-    </div>
-  </div>
-</div>
+<div class="mo" id="mo-edit" onclick="if(event.target===this)this.classList.remove('show')"><div class="mo-box"><button class="mo-close" onclick="document.getElementById('mo-edit').classList.remove('show')">✕</button><div class="mo-title" id="et">EDIT INBOUND</div><input type="hidden" id="eu"><div class="fg"><label class="fl" data-en="Name" data-fa="نام">Name</label><input class="fi" id="en2" readonly style="opacity:.5;cursor:not-allowed"></div><div class="fr"><div class="fg"><label class="fl" data-en="Traffic Limit" data-fa="محدودیت ترافیک">Traffic Limit</label><input class="fi" id="el" type="number" min="0" step=".1" placeholder="0 = ∞"></div><div class="fg" style="max-width:100px"><label class="fl" data-en="Unit" data-fa="واحد">Unit</label><select class="fs" id="eu2"><option>GB</option></select></div></div><div class="fg"><label class="fl" data-en="Max IPs" data-fa="حداکثر آی‌پی">Max IPs</label><input class="fi" id="ec" type="number" min="0" placeholder="0 = ∞"></div><div class="fg"><label class="fl" data-en="Extend Days" data-fa="افزایش روزها">Extend Days</label><input class="fi" id="ed" type="number" min="0" placeholder="0 = no change"></div><div class="fg" style="border:1px solid var(--vanta-border);border-radius:10px;padding:10px 12px;margin-top:4px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="e_vless_enabled" style="width:16px;height:16px;accent-color:var(--vanta-gold)" onchange="toggleVariantBox('e','vless')"><label for="e_vless_enabled" style="font-weight:700;cursor:pointer">VLESS</label></div><div id="e_vless_box"><div class="fr"><div class="fg"><label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label><select class="fs" id="e_vless_transport" onchange="syncAlpnDefault('vless','e_vless_transport','e_vless_alpn')"><option value="ws">WebSocket</option><option value="xhttp-packet-up">XHTTP (packet-up)</option><option value="xhttp-stream-up">XHTTP (stream-up)</option></select></div><div class="fg"><label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label><select class="fs" id="e_vless_fp"><option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option><option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option><option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option></select></div></div><div class="fg"><label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label><select class="fs" id="e_vless_alpn"><option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option><option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option></select></div></div></div><div class="fg" style="border:1px solid var(--vanta-border);border-radius:10px;padding:10px 12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="e_trojan_enabled" style="width:16px;height:16px;accent-color:var(--vanta-gold)" onchange="toggleVariantBox('e','trojan')"><label for="e_trojan_enabled" style="font-weight:700;cursor:pointer">Trojan</label></div><div id="e_trojan_box" style="display:none"><div class="fr"><div class="fg"><label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label><select class="fs" id="e_trojan_transport" onchange="syncAlpnDefault('trojan','e_trojan_transport','e_trojan_alpn')"><option value="ws">WebSocket</option><option value="xhttp-packet-up">XHTTP (packet-up)</option><option value="xhttp-stream-up">XHTTP (stream-up)</option></select></div><div class="fg"><label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label><select class="fs" id="e_trojan_fp"><option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option><option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option><option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option></select></div></div><div class="fg"><label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label><select class="fs" id="e_trojan_alpn"><option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option><option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option></select></div></div></div><div class="fg" style="opacity:.6"><label class="fl" data-en="Port" data-fa="پورت">Port</label><input class="fi" value="443" readonly style="cursor:not-allowed"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-gold" onclick="saveEdit()" style="flex:1;justify-content:center;padding:12px" data-en="SAVE" data-fa="ذخیره">SAVE</button><button class="btn btn-danger" onclick="resetTraf()" style="padding:12px" data-en="Reset" data-fa="بازنشانی">Reset</button></div></div></div>
 
-<div class="mo" id="mo-qr" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="mo-box" style="max-width:340px">
-    <button class="mo-close" onclick="document.getElementById('mo-qr').classList.remove('show')">✕</button>
-    <div class="mo-title" data-en="QR CODE" data-fa="کد QR">QR CODE</div>
-    <div class="qr-box"><img id="qr-img" src="" alt="QR"></div>
-    <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
-      <button class="btn btn-gold btn-sm" onclick="dlQR()" style="padding:10px 16px" data-en="Download" data-fa="دانلود">Download</button>
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mo-qr').classList.remove('show')" style="padding:10px 16px" data-en="Close" data-fa="بستن">Close</button>
-    </div>
-  </div>
-</div>
+<div class="mo" id="mo-qr" onclick="if(event.target===this)this.classList.remove('show')"><div class="mo-box" style="max-width:340px"><button class="mo-close" onclick="document.getElementById('mo-qr').classList.remove('show')">✕</button><div class="mo-title" data-en="QR CODE" data-fa="کد QR">QR CODE</div><div class="qr-box"><img id="qr-img" src="" alt="QR"></div><div style="display:flex;gap:10px;margin-top:16px;justify-content:center"><button class="btn btn-gold btn-sm" onclick="dlQR()" style="padding:10px 16px" data-en="Download" data-fa="دانلود">Download</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('mo-qr').classList.remove('show')" style="padding:10px 16px" data-en="Close" data-fa="بستن">Close</button></div></div></div>
 
-<div class="mo" id="mo-addr" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="mo-box">
-    <button class="mo-close" onclick="document.getElementById('mo-addr').classList.remove('show')">✕</button>
-    <div class="mo-title" data-en="ADD CLEAN IP" data-fa="افزودن آی‌پی تمیز">ADD CLEAN IP</div>
-    <div class="fg"><label class="fl" data-en="IPs / Domains (one per line)" data-fa="آی‌پی‌ها (هر خط یک)">IPs / Domains</label><textarea class="fi" id="na" rows="5" placeholder="8.8.8.8&#10;example.com" style="resize:vertical;font-family:monospace"></textarea></div>
-    <button class="btn btn-gold" onclick="addAddrs()" style="width:100%;justify-content:center;margin-top:12px;padding:12px" data-en="ADD ALL" data-fa="افزودن همه">ADD ALL</button>
-  </div>
-</div>
+<div class="mo" id="mo-addr" onclick="if(event.target===this)this.classList.remove('show')"><div class="mo-box"><button class="mo-close" onclick="document.getElementById('mo-addr').classList.remove('show')">✕</button><div class="mo-title" data-en="ADD CLEAN IP" data-fa="افزودن آی‌پی تمیز">ADD CLEAN IP</div><div class="fg"><label class="fl" data-en="IPs / Domains (one per line)" data-fa="آی‌پی‌ها (هر خط یک)">IPs / Domains</label><textarea class="fi" id="na" rows="5" placeholder="8.8.8.8&#10;example.com" style="resize:vertical;font-family:monospace"></textarea></div><button class="btn btn-gold" onclick="addAddrs()" style="width:100%;justify-content:center;margin-top:12px;padding:12px" data-en="ADD ALL" data-fa="افزودن همه">ADD ALL</button></div></div>
 
 <script>
 function $(s){return document.querySelector(s)}
 function $m(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-function protoBadge(variants){
-  if(!variants)return 'VLESS';
-  const on=[];
-  if(variants.vless&&variants.vless.enabled)on.push('VLESS');
-  if(variants.trojan&&variants.trojan.enabled)on.push('TROJAN');
-  return on.length?on.join('+'):'VLESS';
-}
-
-const langMap={
-  en:{edit:'Edit',copy:'Copy',sub:'Sub',qr:'QR',del:'Del',gh:'View on GitHub'},
-  fa:{edit:'ویرایش',copy:'کپی',sub:'اشتراک',qr:'QR',del:'حذف',gh:'مشاهده در گیت‌هاب'}
-};
+function protoBadge(variants){if(!variants)return'VLESS';const on=[];if(variants.vless&&variants.vless.enabled)on.push('VLESS');if(variants.trojan&&variants.trojan.enabled)on.push('TROJAN');return on.length?on.join('+'):'VLESS';}
+const langMap={en:{edit:'Edit',copy:'Copy',sub:'Sub',qr:'QR',del:'Del',gh:'View on GitHub'},fa:{edit:'ویرایش',copy:'کپی',sub:'اشتراک',qr:'QR',del:'حذف',gh:'مشاهده در گیت‌هاب'}};
 function tr(key){return(langMap[lang]&&langMap[lang][key])||langMap['en'][key]||key}
+let lang=localStorage.getItem('ll')||'en';let theme=localStorage.getItem('theme')||'dark';let allLinks=[];let cf='all';let sData={};let tChart=null;let iChart=null;
+function genDistinctColors(n){const colors=[];const GOLDEN_ANGLE=137.508;const startHue=240;for(let i=0;i<n;i++){const hue=(startHue+i*GOLDEN_ANGLE)%360;const sat=70+((i*17)%20);const light=48+((i*11)%16);colors.push(`hsl(${hue.toFixed(1)},${sat}%,${light}%)`);}return colors;}
+let allAddrs=[];let isAuthenticated=false;let logsWS=null;
 
-let lang=localStorage.getItem('ll')||'en';
-let theme=localStorage.getItem('theme')||'dark';
-let allLinks=[];
-let cf='all';
-let sData={};
-let tChart=null;
-let iChart=null;
-
-// Generates visually distinct colors using the golden-angle rotation so that
-// adjacent chart segments never look alike, regardless of how many users exist.
-function genDistinctColors(n){
-  const colors=[];
-  const GOLDEN_ANGLE=137.508;
-  const startHue=240; // start near indigo/purple to match VANTA theme
-  for(let i=0;i<n;i++){
-    const hue=(startHue+i*GOLDEN_ANGLE)%360;
-    const sat=70+((i*17)%20);   // 70-90%
-    const light=48+((i*11)%16); // 48-64%
-    colors.push(`hsl(${hue.toFixed(1)},${sat}%,${light}%)`);
-  }
-  return colors;
-}
-let allAddrs=[];
-let isAuthenticated=false;
-let logsWS=null;
-
-function setTheme(t){
-  theme=t;
-  if(t==='light')document.body.classList.add('light-mode');
-  else document.body.classList.remove('light-mode');
-  localStorage.setItem('theme',t);
-  const icon=t==='light'?'☀️':'🌙';
-  const mb=$m('theme-btn-mob');
-  const db=$m('theme-btn-desk');
-  if(mb)mb.innerHTML=icon;
-  if(db)db.innerHTML=icon+' Theme';
-  updChartColors();
-}
+function togglePassword(){const inp=$m('login-pw');const btn=$m('eye-btn');if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}else{inp.type='password';btn.textContent='👁️';}}
+function setTheme(t){theme=t;if(t==='light')document.body.classList.add('light-mode');else document.body.classList.remove('light-mode');localStorage.setItem('theme',t);const icon=t==='light'?'☀️':'🌙';const mb=$m('theme-btn-mob');const db=$m('theme-btn-desk');if(mb)mb.innerHTML=icon;if(db)db.innerHTML=icon+' Theme';updChartColors();}
 function toggleTheme(){setTheme(theme==='dark'?'light':'dark')}
-
-function setLang(l){
-  lang=l;
-  document.querySelectorAll('.lang-en').forEach(e=>e.classList.toggle('active',l==='en'));
-  document.querySelectorAll('.lang-fa').forEach(e=>e.classList.toggle('active',l==='fa'));
-  document.body.dir=l==='fa'?'rtl':'ltr';
-  document.querySelectorAll('[data-en]').forEach(el=>{
-    const v=el.getAttribute('data-'+l);
-    if(v)el.textContent=v;
-  });
-  document.querySelectorAll('[data-ph-en]').forEach(el=>{
-    const v=el.getAttribute('data-ph-'+l);
-    if(v)el.placeholder=v;
-  });
-  localStorage.setItem('ll',l);
-  filterLinks();
-}
-
-function connectLogsWS(){
-  if(logsWS){try{logsWS.close()}catch(e){}}
-  const protocol=location.protocol==='https:'?'wss:':'ws:';
-  const token=document.cookie.split('; ').find(r=>r.startsWith('vanta_session='))?.split('=')[1];
-  if(!token)return;
-  logsWS=new WebSocket(`${protocol}//${location.host}/ws/live-logs?token=${token}`);
-  logsWS.onmessage=function(e){
-    const c=$m('log-container');
-    if(c){c.textContent+=e.data+'\n';c.scrollTop=c.scrollHeight}
-  };
-  logsWS.onerror=function(){$m('log-container').textContent='Connection error. Reconnecting...'};
-  logsWS.onclose=function(){setTimeout(connectLogsWS,5000)};
-}
-
-async function checkAuth(){
-  try{
-    const r=await fetch('/api/me');
-    const d=await r.json();
-    if(d.authenticated)showDashboard();
-    else showLogin();
-  }catch(e){showLogin()}
-}
-
-function showLogin(){
-  isAuthenticated=false;
-  $m('login-page').style.display='';
-  $m('dashboard-page').style.display='none';
-}
-
-function showDashboard(){
-  isAuthenticated=true;
-  $m('login-page').style.display='none';
-  $m('dashboard-page').style.display='';
-  initChart();
-  loadStats();
-  loadLinks();
-  loadAddrs();
-  loadSettings();
-  loadNotifs();
-  updateNotifBadge();
-  connectLogsWS();
-}
-
-async function doLogin(){
-  const pw=$m('login-pw').value;
-  $m('login-err').style.display='none';
-  try{
-    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
-    if(r.ok){$m('login-pw').value='';showDashboard()}
-    else $m('login-err').style.display='block';
-  }catch(e){$m('login-err').style.display='block'}
-}
-
-async function doLogout(){
-  await fetch('/api/logout',{method:'POST'});
-  showLogin();
-}
-
-document.querySelectorAll('.nav-item[data-page]').forEach(el=>{
-  el.addEventListener('click',()=>switchPage(el.dataset.page));
-});
-
-function switchPage(id){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const target=$m('page-'+id);
-  if(target)target.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===id));
-}
-
-function toast(msg,err=false){
-  const t=$m('toast');
-  t.textContent=msg;
-  t.className='toast'+(err?' err':'')+' show';
-  clearTimeout(t._hide);
-  t._hide=setTimeout(()=>t.classList.remove('show'),3000);
-}
-
-function fmtB(b){
-  if(!b||b===0)return'0 B';
-  return b>=1073741824?(b/1073741824).toFixed(2)+' GB':
-         b>=1048576?(b/1048576).toFixed(2)+' MB':(b/1024).toFixed(1)+' KB';
-}
-function fmtLim(b){
-  if(!b||b===0)return'∞';
-  const g=b/1073741824;
-  return(g%1===0?g.toFixed(0):g.toFixed(1))+' GB';
-}
-function fmtExp(ea){
-  if(!ea||ea===0)return'∞';
-  const d=new Date(ea)-new Date();
-  if(d<=0)return'Expired';
-  const days=Math.floor(d/86400000);
-  if(days>0)return days+'d';
-  const hours=Math.floor(d/3600000);
-  if(hours>0)return hours+'h';
-  return Math.floor(d/60000)+'m';
-}
-
-function setFilter(filter,el){
-  cf=filter;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  if(el)el.classList.add('active');
-  filterLinks();
-}
-
-function filterLinks(){
-  const q=($m('srch')?.value||'').toLowerCase();
-  let r=allLinks;
-  if(cf==='active')r=r.filter(l=>l.active);
-  else if(cf==='off')r=r.filter(l=>!l.active);
-  if(q)r=r.filter(l=>l.label.toLowerCase().includes(q)||l.uuid.toLowerCase().includes(q));
-  renderLinks(r);
-}
-
-function processAlertsAndCharts(){
-  const alertsList=$m('alerts-list');
-  const alertsBox=$m('alerts-box');
-  alertsList.innerHTML='';
-  let alertCount=0;
-
-  allLinks.forEach(l=>{
-    const u=l.used_bytes||0;
-    const lim=l.limit_bytes||0;
-    const pct=lim>0?(u/lim)*100:0;
-    if(lim>0&&pct>=90){
-      alertCount++;
-      alertsList.innerHTML+=`<div class="alert-item"><span style="font-weight:600">🔴 '${esc(l.label)}' near limit:</span><span>${pct.toFixed(1)}% Used</span></div>`;
-    }
-    if(l.expires_at){
-      const diff=new Date(l.expires_at)-new Date();
-      const days=diff/86400000;
-      if(days>0&&days<=3){
-        alertCount++;
-        alertsList.innerHTML+=`<div class="alert-item"><span style="font-weight:600">🟡 '${esc(l.label)}' expiring soon:</span><span>${days.toFixed(1)} Days</span></div>`;
-      }
-    }
-  });
-  alertsBox.style.display=alertCount>0?'block':'none';
-
-  if(iChart){
-    const sorted=[...allLinks].sort((a,b)=>(b.used_bytes||0)-(a.used_bytes||0)).slice(0,8);
-    iChart.data.labels=sorted.map(x=>x.label);
-    iChart.data.datasets[0].data=sorted.map(x=>Math.round((x.used_bytes||0)/(1024*1024)));
-    iChart.data.datasets[0].backgroundColor=genDistinctColors(sorted.length);
-    iChart.update();
-  }
-}
-
-function renderLinks(links){
-  const tb=$m('ltb');
-  const em=$m('lempty');
-  const mc=$m('mcards');
-  if(!links||!links.length){
-    tb.innerHTML='';mc.innerHTML='';em.style.display='block';
-    em.textContent=em.getAttribute('data-'+lang)||'No inbounds found';
-    return;
-  }
-  em.style.display='none';
-  let idx=links.length;
-  const rows=links.map(l=>{
-    const u=l.used_bytes||0;
-    const lim=l.limit_bytes||0;
-    const pct=lim>0?Math.min(100,(u/lim)*100):0;
-    const col=pct>90?'var(--red)':pct>70?'var(--yellow)':'var(--indigo)';
-    const ex=fmtExp(l.expires_at);
-    const ec=ex==='Expired'?'var(--red)':ex==='∞'?'var(--text3)':'var(--text2)';
-    const i=idx--;
-    const cc=l.current_connections||0;
-    const mc2=l.max_connections||0;
-    return{l,pct,col,ex,ec,i,cc,mc2,u,lim};
-  });
-
-  const editText=tr('edit');
-  const copyText=tr('copy');
-  const subText=tr('sub');
-  const qrText=tr('qr');
-  const delText=tr('del');
-
-  tb.innerHTML=rows.map(r=>`<tr>
-    <td style="color:var(--text3);font-size:10.5px">${r.i}</td>
-    <td style="font-weight:600">${esc(r.l.label)}</td>
-    <td><span class="tag tag-vless">${protoBadge(r.l.variants)}</span></td>
-    <td><div class="pill"><span class="pill-used">${fmtB(r.u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${r.pct}%;background:${r.col}"></div></div><span class="pill-lim">${fmtLim(r.lim)}</span></div></td>
-    <td style="font-size:11px;font-weight:600;color:${r.mc2>0&&r.cc>=r.mc2?'var(--red)':'var(--text2)'}">${r.cc}/${r.mc2||'∞'}</td>
-    <td style="font-size:10.5px;font-weight:700;color:${r.ec}">${r.ex}</td>
-    <td><span class="tag ${r.l.active?'tag-on':'tag-off'}">${r.l.active?'On':'Off'}</span></td>
-    <td><div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">
-      <button class="toggle ${r.l.active?'on':''}" data-uid="${r.l.uuid}" onclick="togLink(this)"></button>
-      <button class="act-btn act-edit" onclick="showEditMo('${r.l.uuid}')">${editText}</button>
-      <button class="act-btn act-copy" onclick="cpLink('${esc((r.l.vless_links||[]).join(String.fromCharCode(10)))}')">${copyText}</button>
-      <button class="act-btn act-sub" onclick="cpSub('${r.l.uuid}')">${subText}</button>
-      <button class="act-btn act-qr" onclick="showQR('${esc((r.l.vless_links||[])[0]||'')}')">${qrText}</button>
-      <button class="act-btn act-del" onclick="delLink('${r.l.uuid}')">${delText}</button>
-    </div></td>
-  </tr>`).join('');
-
-  mc.innerHTML=rows.map(r=>`<div class="m-card">
-    <div class="m-card-hd">
-      <div style="display:flex;align-items:center;gap:7px">
-        <span style="font-size:11px;color:var(--text3)">#${r.i}</span>
-        <span style="font-weight:600;font-size:14px">${esc(r.l.label)}</span>
-        <span class="tag tag-vless">${protoBadge(r.l.variants)}</span>
-      </div>
-      <button class="toggle ${r.l.active?'on':''}" data-uid="${r.l.uuid}" onclick="togLink(this)"></button>
-    </div>
-    <div class="pill"><span class="pill-used">${fmtB(r.u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${r.pct}%;background:${r.col}"></div></div><span class="pill-lim">${fmtLim(r.lim)}</span></div>
-    <div style="font-size:11.5px;color:${r.ec};margin-top:6px;font-weight:600">⏳ ${r.ex} · ${r.cc}/${r.mc2||'∞'} IPs</div>
-    <div class="m-card-acts">
-      <button class="act-btn act-edit" onclick="showEditMo('${r.l.uuid}')">${editText}</button>
-      <button class="act-btn act-copy" onclick="cpLink('${esc((r.l.vless_links||[]).join(String.fromCharCode(10)))}')">${copyText}</button>
-      <button class="act-btn act-sub" onclick="cpSub('${r.l.uuid}')">${subText}</button>
-      <button class="act-btn act-qr" onclick="showQR('${esc((r.l.vless_links||[])[0]||'')}')">${qrText}</button>
-      <button class="act-btn act-del" onclick="delLink('${r.l.uuid}')">${delText}</button>
-    </div>
-  </div>`).join('');
-  
-  processAlertsAndCharts();
-}
-
-async function togLink(el){
-  const uid=el.dataset.uid;
-  const l=allLinks.find(x=>x.uuid===uid);
-  if(!l)return;
-  const na=!l.active;
-  try{
-    const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:na})});
-    if(!r.ok)throw new Error();
-    l.active=na;filterLinks();loadStats();
-  }catch(e){toast('Failed to toggle',true)}
-}
-
+function setLang(l){lang=l;document.querySelectorAll('.lang-en').forEach(e=>e.classList.toggle('active',l==='en'));document.querySelectorAll('.lang-fa').forEach(e=>e.classList.toggle('active',l==='fa'));document.body.dir=l==='fa'?'rtl':'ltr';document.querySelectorAll('[data-en]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});document.querySelectorAll('[data-ph-en]').forEach(el=>{const v=el.getAttribute('data-ph-'+l);if(v)el.placeholder=v;});localStorage.setItem('ll',l);filterLinks();}
+function connectLogsWS(){if(logsWS){try{logsWS.close()}catch(e){}}const protocol=location.protocol==='https:'?'wss:':'ws:';const token=document.cookie.split('; ').find(r=>r.startsWith('vanta_session='))?.split('=')[1];if(!token)return;logsWS=new WebSocket(`${protocol}//${location.host}/ws/live-logs?token=${token}`);logsWS.onmessage=function(e){const c=$m('log-container');if(c){c.textContent+=e.data+'\n';c.scrollTop=c.scrollHeight}};logsWS.onerror=function(){$m('log-container').textContent='Connection error. Reconnecting...'};logsWS.onclose=function(){setTimeout(connectLogsWS,5000)};}
+async function checkAuth(){try{const r=await fetch('/api/me');const d=await r.json();if(d.authenticated)showDashboard();else showLogin();}catch(e){showLogin()}}
+function showLogin(){isAuthenticated=false;$m('login-page').style.display='flex';$m('dashboard-page').classList.remove('active');$m('dashboard-page').style.display='none';}
+function showDashboard(){isAuthenticated=true;$m('login-page').style.display='none';$m('dashboard-page').style.display='block';$m('dashboard-page').classList.add('active');initChart();loadStats();loadLinks();loadAddrs();loadSettings();loadNotifs();updateNotifBadge();connectLogsWS();}
+async function doLogin(){const pw=$m('login-pw').value;$m('login-err').style.display='none';try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});if(r.ok){$m('login-pw').value='';showDashboard();}else $m('login-err').style.display='block';}catch(e){$m('login-err').style.display='block'}}
+async function doLogout(){await fetch('/api/logout',{method:'POST'});showLogin();}
+document.querySelectorAll('.nav-item[data-page]').forEach(el=>{el.addEventListener('click',()=>switchPage(el.dataset.page));});
+function switchPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));const target=$m('page-'+id);if(target)target.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===id));}
+function toast(msg,err=false){const t=$m('toast');t.textContent=msg;t.className='toast'+(err?' err':'')+' show';clearTimeout(t._hide);t._hide=setTimeout(()=>t.classList.remove('show'),3000);}
+function fmtB(b){if(!b||b===0)return'0 B';return b>=1073741824?(b/1073741824).toFixed(2)+' GB':b>=1048576?(b/1048576).toFixed(2)+' MB':(b/1024).toFixed(1)+' KB';}
+function fmtLim(b){if(!b||b===0)return'∞';const g=b/1073741824;return(g%1===0?g.toFixed(0):g.toFixed(1))+' GB';}
+function fmtExp(ea){if(!ea||ea===0)return'∞';const d=new Date(ea)-new Date();if(d<=0)return'Expired';const days=Math.floor(d/86400000);if(days>0)return days+'d';const hours=Math.floor(d/3600000);if(hours>0)return hours+'h';return Math.floor(d/60000)+'m';}
+function setFilter(filter,el){cf=filter;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));if(el)el.classList.add('active');filterLinks();}
+function filterLinks(){const q=($m('srch')?.value||'').toLowerCase();let r=allLinks;if(cf==='active')r=r.filter(l=>l.active);else if(cf==='off')r=r.filter(l=>!l.active);if(q)r=r.filter(l=>l.label.toLowerCase().includes(q)||l.uuid.toLowerCase().includes(q));renderLinks(r);}
+function processAlertsAndCharts(){const alertsList=$m('alerts-list');const alertsBox=$m('alerts-box');alertsList.innerHTML='';let alertCount=0;allLinks.forEach(l=>{const u=l.used_bytes||0;const lim=l.limit_bytes||0;const pct=lim>0?(u/lim)*100:0;if(lim>0&&pct>=90){alertCount++;alertsList.innerHTML+=`<div class="alert-item"><span style="font-weight:600">🔴 '${esc(l.label)}' near limit:</span><span>${pct.toFixed(1)}% Used</span></div>`;}if(l.expires_at){const diff=new Date(l.expires_at)-new Date();const days=diff/86400000;if(days>0&&days<=3){alertCount++;alertsList.innerHTML+=`<div class="alert-item"><span style="font-weight:600">🟡 '${esc(l.label)}' expiring soon:</span><span>${days.toFixed(1)} Days</span></div>`;}}});alertsBox.style.display=alertCount>0?'block':'none';if(iChart){const sorted=[...allLinks].sort((a,b)=>(b.used_bytes||0)-(a.used_bytes||0)).slice(0,8);iChart.data.labels=sorted.map(x=>x.label);iChart.data.datasets[0].data=sorted.map(x=>Math.round((x.used_bytes||0)/(1024*1024)));iChart.data.datasets[0].backgroundColor=genDistinctColors(sorted.length);iChart.update();}}
+function renderLinks(links){const tb=$m('ltb');const em=$m('lempty');const mc=$m('mcards');if(!links||!links.length){tb.innerHTML='';mc.innerHTML='';em.style.display='block';em.textContent=em.getAttribute('data-'+lang)||'No inbounds found';return;}em.style.display='none';let idx=links.length;const rows=links.map(l=>{const u=l.used_bytes||0;const lim=l.limit_bytes||0;const pct=lim>0?Math.min(100,(u/lim)*100):0;const col=pct>90?'var(--vanta-red)':pct>70?'var(--vanta-gold)':'var(--vanta-purple)';const ex=fmtExp(l.expires_at);const ec=ex==='Expired'?'var(--vanta-red)':ex==='∞'?'var(--vanta-text3)':'var(--vanta-text2)';const i=idx--;const cc=l.current_connections||0;const mc2=l.max_connections||0;return{l,pct,col,ex,ec,i,cc,mc2,u,lim};});const editText=tr('edit');const copyText=tr('copy');const subText=tr('sub');const qrText=tr('qr');const delText=tr('del');tb.innerHTML=rows.map(r=>`<tr><td style="color:var(--vanta-text3);font-size:10.5px">${r.i}</td><td style="font-weight:600">${esc(r.l.label)}</td><td><span class="tag tag-vless">${protoBadge(r.l.variants)}</span></td><td><div class="pill"><span class="pill-used">${fmtB(r.u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${r.pct}%;background:${r.col}"></div></div><span class="pill-lim">${fmtLim(r.lim)}</span></div></td><td style="font-size:11px;font-weight:600;color:${r.mc2>0&&r.cc>=r.mc2?'var(--vanta-red)':'var(--vanta-text2)'}">${r.cc}/${r.mc2||'∞'}</td><td style="font-size:10.5px;font-weight:700;color:${r.ec}">${r.ex}</td><td><span class="tag ${r.l.active?'tag-on':'tag-off'}">${r.l.active?'On':'Off'}</span></td><td><div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap"><button class="toggle ${r.l.active?'on':''}" data-uid="${r.l.uuid}" onclick="togLink(this)"></button><button class="act-btn act-edit" onclick="showEditMo('${r.l.uuid}')">${editText}</button><button class="act-btn act-copy" onclick="cpLink('${esc((r.l.vless_links||[]).join(String.fromCharCode(10)))}')">${copyText}</button><button class="act-btn act-sub" onclick="cpSub('${r.l.uuid}')">${subText}</button><button class="act-btn act-qr" onclick="showQR('${esc((r.l.vless_links||[])[0]||'')}')">${qrText}</button><button class="act-btn act-del" onclick="delLink('${r.l.uuid}')">${delText}</button></div></td></tr>`).join('');mc.innerHTML=rows.map(r=>`<div class="m-card"><div class="m-card-hd"><div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;color:var(--vanta-text3)">#${r.i}</span><span style="font-weight:600;font-size:14px">${esc(r.l.label)}</span><span class="tag tag-vless">${protoBadge(r.l.variants)}</span></div><button class="toggle ${r.l.active?'on':''}" data-uid="${r.l.uuid}" onclick="togLink(this)"></button></div><div class="pill"><span class="pill-used">${fmtB(r.u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${r.pct}%;background:${r.col}"></div></div><span class="pill-lim">${fmtLim(r.lim)}</span></div><div style="font-size:11.5px;color:${r.ec};margin-top:6px;font-weight:600">⏳ ${r.ex} · ${r.cc}/${r.mc2||'∞'} IPs</div><div class="m-card-acts"><button class="act-btn act-edit" onclick="showEditMo('${r.l.uuid}')">${editText}</button><button class="act-btn act-copy" onclick="cpLink('${esc((r.l.vless_links||[]).join(String.fromCharCode(10)))}')">${copyText}</button><button class="act-btn act-sub" onclick="cpSub('${r.l.uuid}')">${subText}</button><button class="act-btn act-qr" onclick="showQR('${esc((r.l.vless_links||[])[0]||'')}')">${qrText}</button><button class="act-btn act-del" onclick="delLink('${r.l.uuid}')">${delText}</button></div></div>`).join('');processAlertsAndCharts();}
+async function togLink(el){const uid=el.dataset.uid;const l=allLinks.find(x=>x.uuid===uid);if(!l)return;const na=!l.active;try{const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:na})});if(!r.ok)throw new Error();l.active=na;filterLinks();loadStats();}catch(e){toast('Failed to toggle',true)}}
 function showAddMo(){$m('mo-add').classList.add('show')}
-
-// وقتی transport یک بلاک (vless یا trojan) عوض شد، ALPN همون بلاک رو به پیش‌فرضش ببر
-const ALPN_DEFAULTS={
-  'vless-ws':'http/1.1','vless-xhttp-packet-up':'h2,http/1.1','vless-xhttp-stream-up':'h2,http/1.1',
-  'trojan-ws':'http/1.1','trojan-xhttp-packet-up':'h2,http/1.1','trojan-xhttp-stream-up':'h2,http/1.1',
-};
-function syncAlpnDefault(auth,transportId,alpnId){
-  const key=auth+'-'+$m(transportId).value;
-  $m(alpnId).value=ALPN_DEFAULTS[key]||'http/1.1';
-}
-function toggleVariantBox(prefix,auth){
-  $m(prefix+'_'+auth+'_box').style.display=$m(prefix+'_'+auth+'_enabled').checked?'':'none';
-}
-function readVariantFields(prefix,auth){
-  return {
-    [auth+'_enabled']: $m(prefix+'_'+auth+'_enabled').checked,
-    [auth+'_transport']: $m(prefix+'_'+auth+'_transport').value,
-    [auth+'_fingerprint']: $m(prefix+'_'+auth+'_fp').value,
-    [auth+'_alpn']: $m(prefix+'_'+auth+'_alpn').value,
-  };
-}
-function fillVariantFields(prefix,auth,variant){
-  $m(prefix+'_'+auth+'_enabled').checked=!!(variant&&variant.enabled);
-  $m(prefix+'_'+auth+'_transport').value=(variant&&variant.transport)||'ws';
-  $m(prefix+'_'+auth+'_fp').value=(variant&&variant.fingerprint)||'chrome';
-  $m(prefix+'_'+auth+'_alpn').value=(variant&&variant.alpn)||ALPN_DEFAULTS[auth+'-ws'];
-  toggleVariantBox(prefix,auth);
-}
-
-async function createLink(){
-  const label=$m('nl').value.trim()||'New Link';
-  if(!/^[a-zA-Z0-9\-_. ]+$/.test(label)){toast('Only English letters allowed',true);return}
-  if(!$m('n_vless_enabled').checked && !$m('n_trojan_enabled').checked){toast('Enable at least one protocol (VLESS or Trojan)',true);return}
-  const v=parseFloat($m('nv').value)||0;
-  const mc=parseInt($m('nc').value)||0;
-  const days=parseInt($m('nd').value)||0;
-  const body=Object.assign({label,limit_value:v,limit_unit:'GB',max_connections:mc,days_valid:days},readVariantFields('n','vless'),readVariantFields('n','trojan'));
-  try{
-    const r=await fetch('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error();
-    toast('Created');
-    $m('nl').value='';$m('nv').value='';$m('nc').value='';$m('nd').value='';
-    $m('mo-add').classList.remove('show');
-    await loadLinks();await loadStats();
-  }catch(e){toast('Error creating link',true)}
-}
-
-function showEditMo(uid){
-  const l=allLinks.find(x=>x.uuid===uid);
-  if(!l)return;
-  $m('eu').value=uid;
-  $m('en2').value=l.label;
-  $m('el').value=l.limit_bytes>0?(l.limit_bytes/1073741824):'';
-  $m('ec').value=l.max_connections>0?l.max_connections:'';
-  $m('ed').value='';
-  const variants=l.variants||{};
-  fillVariantFields('e','vless',variants.vless);
-  fillVariantFields('e','trojan',variants.trojan);
-  $m('et').textContent=(lang==='fa'?'ویرایش: ':'EDIT: ')+l.label;
-  $m('mo-edit').classList.add('show');
-}
-
-async function saveEdit(){
-  const uid=$m('eu').value;
-  if(!$m('e_vless_enabled').checked && !$m('e_trojan_enabled').checked){toast('Enable at least one protocol (VLESS or Trojan)',true);return}
-  const v=parseFloat($m('el').value)||0;
-  const mc=parseInt($m('ec').value)||0;
-  const days=parseInt($m('ed').value)||0;
-  const body=Object.assign({limit_value:v,limit_unit:'GB',max_connections:mc},readVariantFields('e','vless'),readVariantFields('e','trojan'));
-  if(days>0)body.days_valid=days;
-  try{
-    const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error();
-    toast('Updated');$m('mo-edit').classList.remove('show');await loadLinks();
-  }catch(e){toast('Error updating',true)}
-}
-
-async function resetTraf(){
-  const uid=$m('eu').value;
-  if(!confirm('Reset traffic for this inbound?'))return;
-  try{
-    const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset_usage:true})});
-    if(!r.ok)throw new Error();
-    toast('Traffic reset');await loadLinks();
-  }catch(e){toast('Error resetting',true)}
-}
-
-async function delLink(uid){
-  if(!confirm('Delete this inbound?'))return;
-  try{
-    const r=await fetch('/api/links/'+uid,{method:'DELETE'});
-    if(!r.ok)throw new Error();
-    toast('Deleted');await loadLinks();await loadStats();
-  }catch(e){toast('Error deleting',true)}
-}
-
-function cpLink(txt){
-  if(!txt){toast('No link to copy',true);return}
-  navigator.clipboard.writeText(txt).then(()=>toast('Copied!')).catch(()=>toast('Failed to copy',true));
-}
-
-async function cpSub(uid){
-  try{
-    await navigator.clipboard.writeText('https://'+location.host+'/sub/'+uid);
-    toast('Sub URL copied!');
-  }catch(e){toast('Failed to copy',true)}
-}
-
-function showQR(txt){
-  if(!txt){toast('No QR data',true);return}
-  $m('qr-img').src='https://api.qrserver.com/v1/create-qr-code/?size=280x280&data='+encodeURIComponent(txt);
-  $m('mo-qr').classList.add('show');
-}
-
-function dlQR(){
-  const a=document.createElement('a');
-  a.href=$m('qr-img').src;a.download='vanta-qr.png';a.click();
-}
-
-async function loadSettings(){
-  try{
-    const r=await fetch('/api/settings');
-    if(r.ok){const d=await r.json();
-      $m('tg-token').value=d.telegram_token||'';
-      $m('tg-admin-id').value=d.telegram_admin_id||'';
-      if($m('rw-tg-token'))$m('rw-tg-token').value=d.telegram_token||'';
-      if($m('rw-tg-admin'))$m('rw-tg-admin').value=d.telegram_admin_id||'';
-      if($m('rw-token'))$m('rw-token').value=d.railway_token||'';
-      if($m('rw-tg-notify-conn'))$m('rw-tg-notify-conn').checked=!!d.notify_connections;
-    }
-  }catch(e){}
-}
-
-async function saveSettings(){
-  const tok=$m('tg-token').value.trim();
-  const adm=$m('tg-admin-id').value.trim();
-  try{
-    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm})});
-    if(r.ok)toast('Bot settings saved & restarted');
-    else toast('Failed to save settings',true);
-  }catch(e){toast('Error saving settings',true)}
-}
-
-async function saveAllSettings(){
-  const tok=($m('rw-tg-token')?.value||'').trim();
-  const adm=($m('rw-tg-admin')?.value||'').trim();
-  const rwt=($m('rw-token')?.value||'').trim();
-  const notifyConn=!!($m('rw-tg-notify-conn')?.checked);
-  try{
-    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm,railway_token:rwt,notify_connections:notifyConn})});
-    if(r.ok)toast('All settings saved');
-    else toast('Failed to save settings',true);
-  }catch(e){toast('Error saving settings',true)}
-}
-
-// ── Railway / Permanent Database ──────────────────────────────────────────
-
-async function fetchRailwayProjects(){
-  const token=$m('rw-token').value.trim();
-  if(!token){toast('Enter your Railway token first',true);return}
-  const btn=$m('rw-fetch-btn');
-  const sel=$m('rw-project');
-  btn.disabled=true;btn.textContent='Loading...';
-  sel.disabled=true;sel.innerHTML='<option>Loading...</option>';
-  $m('rw-volume-info').style.display='none';
-  try{
-    const r=await fetch('/api/railway/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
-    if(!r.ok)throw new Error((await r.json()).detail||'Error');
-    const d=await r.json();
-    sel.innerHTML='<option value="">-- Select a project --</option>'+d.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-    sel.disabled=false;
-    toast('Found '+d.projects.length+' project(s)');
-  }catch(e){toast(e.message||'Failed to fetch projects',true);sel.innerHTML='<option value="">Error loading</option>'}
-  finally{btn.disabled=false;btn.textContent=btn.getAttribute('data-'+lang)||'Fetch'}
-}
-
-async function checkRailwayVolume(){
-  const token=$m('rw-token').value.trim();
-  const pid=$m('rw-project').value;
-  if(!token||!pid){toast('Select a project first',true);return}
-  const info=$m('rw-volume-info');
-  const icon=$m('rw-volume-icon');
-  const title=$m('rw-volume-title');
-  const desc=$m('rw-volume-desc');
-  const cbtn=$m('rw-create-btn');
-  info.style.display='';icon.textContent='⏳';title.textContent='Checking...';desc.textContent='';cbtn.style.display='none';
-  try{
-    const r=await fetch('/api/railway/volume-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,project_id:pid})});
-    if(!r.ok)throw new Error((await r.json()).detail||'Error');
-    const d=await r.json();
-    const hasData=d.has_data_volume;
-    if(hasData){
-      icon.textContent='✅';icon.style.color='var(--green)';
-      title.textContent='Volume at /data exists!';
-      const v=d.volumes.find(x=>x.path==='data'||x.path==='/data')||d.volumes[0];
-      desc.textContent=(v?'ID: '+v.id+' | Name: '+v.name+' | State: '+v.state:'');
-      cbtn.style.display='none';
-      $m('rdb-status').textContent='✅ Active';$m('rdb-status').style.color='var(--green)';
-    }else{
-      // No volume found - create it automatically, no manual click needed.
-      icon.textContent='⏳';title.textContent='No volume found, creating one automatically...';desc.textContent='';
-      $m('rdb-status').textContent='⏳ Creating...';$m('rdb-status').style.color='var(--gold)';
-      await createRailwayVolume(true);
-    }
-  }catch(e){toast(e.message||'Failed to check',true);info.style.display='none'}
-}
-
-async function createRailwayVolume(silent){
-  const token=$m('rw-token').value.trim();
-  const pid=$m('rw-project').value;
-  if(!token||!pid){toast('Select a project first',true);return}
-  const icon=$m('rw-volume-icon');
-  const title=$m('rw-volume-title');
-  const desc=$m('rw-volume-desc');
-  const cbtn=$m('rw-create-btn');
-  cbtn.disabled=true;cbtn.textContent='Creating...';
-  try{
-    const r=await fetch('/api/railway/create-volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,project_id:pid})});
-    if(!r.ok)throw new Error((await r.json()).detail||'Error');
-    if(!silent)toast('Volume created successfully!');
-    else toast('/data volume created automatically');
-    icon.textContent='✅';icon.style.color='var(--green)';
-    title.textContent='Volume at /data created!';
-    desc.textContent='It may take a few seconds to finish provisioning.';
-    cbtn.style.display='none';
-    $m('rdb-status').textContent='✅ Active';$m('rdb-status').style.color='var(--green)';
-  }catch(e){
-    icon.textContent='❌';icon.style.color='var(--red)';
-    title.textContent='No volume at /data found';
-    desc.textContent=e.message||'Failed to auto-create volume. Click below to retry.';
-    cbtn.style.display='';
-    $m('rdb-status').textContent='❌ Missing';$m('rdb-status').style.color='var(--red)';
-    toast(e.message||'Failed to create volume',true);
-  }
-  finally{cbtn.disabled=false;cbtn.textContent=cbtn.getAttribute('data-'+lang)||'Create Volume'}
-}
-
-// Auto-check volume when project selection changes
-document.addEventListener('change',function(e){
-  if(e.target.id==='rw-project'&&e.target.value){
-    checkRailwayVolume();
-  }
-});
-
-async function loadStats(){
-  try{
-    const r=await fetch('/stats');
-    if(r.status===401){showLogin();return}
-    if(!r.ok)throw new Error();
-    sData=await r.json();
-    $m('sv-traffic').innerHTML=(sData.total_traffic_mb||0)+'<span class="stat-unit"> MB</span>';
-    $m('sv-links').textContent=sData.links_count||0;
-    $m('sv-uptime').textContent=sData.uptime||'-';
-    $m('sv-domain').textContent=sData.domain||'-';
-    $m('nb').textContent=sData.links_count||0;
-    $m('last-up').textContent='Updated '+new Date().toLocaleTimeString();
-    if($m('t-tr'))$m('t-tr').textContent=(sData.total_traffic_mb||0)+' MB';
-    if($m('t-rq'))$m('t-rq').textContent=(sData.total_requests||0).toLocaleString();
-    if($m('t-up'))$m('t-up').textContent=sData.uptime||'-';
-    if(sData.cpu_percent!==undefined){
-      const c=sData.cpu_percent;
-      const cc=c>80?'var(--red)':c>50?'var(--yellow)':'var(--indigo)';
-      $m('cpu-v').textContent=c.toFixed(1)+'%';$m('cpu-v').style.color=cc;
-      $m('cpu-b').style.width=c+'%';$m('cpu-b').style.background=cc;
-    }
-    if(sData.memory_percent!==undefined){
-      const m=sData.memory_percent;
-      const mc=m>80?'var(--red)':m>50?'var(--yellow)':'var(--green)';
-      $m('mem-v').textContent=m.toFixed(1)+'%';$m('mem-v').style.color=mc;
-      $m('mem-b').style.width=m+'%';$m('mem-b').style.background=mc;
-    }
-    updChart();
-  }catch(e){}
-}
-
-async function loadLinks(){
-  try{
-    const r=await fetch('/api/links');
-    if(r.status===401){showLogin();return}
-    if(!r.ok)throw new Error();
-    const d=await r.json();
-    allLinks=d.links||[];filterLinks();
-  }catch(e){}
-}
-
-async function chgPw(){
-  const cur=$m('cpw').value;const nw=$m('npw').value;
-  if(!cur||!nw){toast('Fill all fields',true);return}
-  if(nw.length<4){toast('Password must be at least 4 characters',true);return}
-  try{
-    const r=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:nw})});
-    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||'Error')}
-    toast('Password updated');$m('cpw').value='';$m('npw').value='';
-  }catch(e){toast(e.message,true)}
-}
-
-function initChart(){
-  const ctx=$m('tc');
-  if(!ctx||tChart)return;
-  tChart=new Chart(ctx,{
-    type:'bar',
-    data:{labels:[],datasets:[{label:'MB',data:[],backgroundColor:'rgba(129,140,248,0.4)',borderColor:'#818CF8',borderWidth:1,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{display:false},ticks:{color:'rgba(129,140,248,0.35)',font:{size:10}}},
-        y:{grid:{color:'rgba(129,140,248,0.06)'},ticks:{color:'rgba(129,140,248,0.35)',font:{size:10},callback:v=>v+' MB'},beginAtZero:true}
-      }
-    }
-  });
-
-  const ctx2=$m('inbound-chart');
-  if(ctx2&&!iChart){
-    iChart=new Chart(ctx2,{
-      type:'doughnut',
-      data:{labels:[],datasets:[{data:[],
-        backgroundColor:[],
-        borderWidth:0}]},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:true,position:'right',labels:{color:'rgba(255,255,255,0.6)',font:{size:10}}}}}
-    });
-  }
-  updChartColors();
-}
-
-function updChartColors(){
-  if(!tChart)return;
-  const col=theme==='light'?'rgba(0,0,0,0.4)':'rgba(129,140,248,0.35)';
-  const gridCol=theme==='light'?'rgba(0,0,0,0.06)':'rgba(129,140,248,0.06)';
-  tChart.options.scales.x.ticks.color=col;
-  tChart.options.scales.y.ticks.color=col;
-  tChart.options.scales.y.grid.color=gridCol;
-  tChart.update();
-}
-
-function updChart(){
-  if(!tChart||!sData.hourly_traffic)return;
-  const entries=Object.entries(sData.hourly_traffic).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
-  tChart.data.labels=entries.map(x=>{const p=x[0].split(' ');return p.length>1?p[1]:p[0]});
-  tChart.data.datasets[0].data=entries.map(x=>Math.round(x[1]/1048576));
-  tChart.update();
-}
-
-async function loadAddrs(){
-  try{
-    const r=await fetch('/api/addresses');
-    if(!r.ok)throw new Error();
-    const d=await r.json();allAddrs=d.addresses||[];renderAddrs();
-  }catch(e){}
-}
-
-function renderAddrs(){
-  const el=$m('addr-list');
-  if(!el)return;
-  if(!allAddrs||!allAddrs.length){el.innerHTML='<div style="color:var(--text3);font-size:12px">No addresses added</div>';return}
-  el.innerHTML=allAddrs.map((a,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="color:var(--gold);font-size:16px">🌐</span>
-      <div><div style="font-size:14px;font-weight:600">${esc(a)}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">Address #${i+1}</div></div>
-    </div>
-    <button class="act-btn act-del" onclick="delAddr(${i})">${tr('del')}</button>
-  </div>`).join('');
-}
-
+const ALPN_DEFAULTS={'vless-ws':'http/1.1','vless-xhttp-packet-up':'h2,http/1.1','vless-xhttp-stream-up':'h2,http/1.1','trojan-ws':'http/1.1','trojan-xhttp-packet-up':'h2,http/1.1','trojan-xhttp-stream-up':'h2,http/1.1'};
+function syncAlpnDefault(auth,transportId,alpnId){const key=auth+'-'+$m(transportId).value;$m(alpnId).value=ALPN_DEFAULTS[key]||'http/1.1';}
+function toggleVariantBox(prefix,auth){$m(prefix+'_'+auth+'_box').style.display=$m(prefix+'_'+auth+'_enabled').checked?'':'none';}
+function readVariantFields(prefix,auth){return{[auth+'_enabled']:$m(prefix+'_'+auth+'_enabled').checked,[auth+'_transport']:$m(prefix+'_'+auth+'_transport').value,[auth+'_fingerprint']:$m(prefix+'_'+auth+'_fp').value,[auth+'_alpn']:$m(prefix+'_'+auth+'_alpn').value};}
+function fillVariantFields(prefix,auth,variant){$m(prefix+'_'+auth+'_enabled').checked=!!(variant&&variant.enabled);$m(prefix+'_'+auth+'_transport').value=(variant&&variant.transport)||'ws';$m(prefix+'_'+auth+'_fp').value=(variant&&variant.fingerprint)||'chrome';$m(prefix+'_'+auth+'_alpn').value=(variant&&variant.alpn)||ALPN_DEFAULTS[auth+'-ws'];toggleVariantBox(prefix,auth);}
+async function createLink(){const label=$m('nl').value.trim()||'New Link';if(!/^[a-zA-Z0-9\-_. ]+$/.test(label)){toast('Only English letters allowed',true);return}if(!$m('n_vless_enabled').checked && !$m('n_trojan_enabled').checked){toast('Enable at least one protocol (VLESS or Trojan)',true);return}const v=parseFloat($m('nv').value)||0;const mc=parseInt($m('nc').value)||0;const days=parseInt($m('nd').value)||0;const body=Object.assign({label,limit_value:v,limit_unit:'GB',max_connections:mc,days_valid:days},readVariantFields('n','vless'),readVariantFields('n','trojan'));try{const r=await fetch('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();toast('Created');$m('nl').value='';$m('nv').value='';$m('nc').value='';$m('nd').value='';$m('mo-add').classList.remove('show');await loadLinks();await loadStats();}catch(e){toast('Error creating link',true)}}
+function showEditMo(uid){const l=allLinks.find(x=>x.uuid===uid);if(!l)return;$m('eu').value=uid;$m('en2').value=l.label;$m('el').value=l.limit_bytes>0?(l.limit_bytes/1073741824):'';$m('ec').value=l.max_connections>0?l.max_connections:'';$m('ed').value='';const variants=l.variants||{};fillVariantFields('e','vless',variants.vless);fillVariantFields('e','trojan',variants.trojan);$m('et').textContent=(lang==='fa'?'ویرایش: ':'EDIT: ')+l.label;$m('mo-edit').classList.add('show');}
+async function saveEdit(){const uid=$m('eu').value;if(!$m('e_vless_enabled').checked && !$m('e_trojan_enabled').checked){toast('Enable at least one protocol (VLESS or Trojan)',true);return}const v=parseFloat($m('el').value)||0;const mc=parseInt($m('ec').value)||0;const days=parseInt($m('ed').value)||0;const body=Object.assign({limit_value:v,limit_unit:'GB',max_connections:mc},readVariantFields('e','vless'),readVariantFields('e','trojan'));if(days>0)body.days_valid=days;try{const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();toast('Updated');$m('mo-edit').classList.remove('show');await loadLinks();}catch(e){toast('Error updating',true)}}
+async function resetTraf(){const uid=$m('eu').value;if(!confirm('Reset traffic for this inbound?'))return;try{const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset_usage:true})});if(!r.ok)throw new Error();toast('Traffic reset');await loadLinks();}catch(e){toast('Error resetting',true)}}
+async function delLink(uid){if(!confirm('Delete this inbound?'))return;try{const r=await fetch('/api/links/'+uid,{method:'DELETE'});if(!r.ok)throw new Error();toast('Deleted');await loadLinks();await loadStats();}catch(e){toast('Error deleting',true)}}
+function cpLink(txt){if(!txt){toast('No link to copy',true);return}navigator.clipboard.writeText(txt).then(()=>toast('Copied!')).catch(()=>toast('Failed to copy',true));}
+async function cpSub(uid){try{await navigator.clipboard.writeText('https://'+location.host+'/sub/'+uid);toast('Sub URL copied!');}catch(e){toast('Failed to copy',true)}}
+function showQR(txt){if(!txt){toast('No QR data',true);return}$m('qr-img').src='https://api.qrserver.com/v1/create-qr-code/?size=280x280&data='+encodeURIComponent(txt);$m('mo-qr').classList.add('show');}
+function dlQR(){const a=document.createElement('a');a.href=$m('qr-img').src;a.download='vanta-qr.png';a.click();}
+async function loadSettings(){try{const r=await fetch('/api/settings');if(r.ok){const d=await r.json();$m('tg-token').value=d.telegram_token||'';$m('tg-admin-id').value=d.telegram_admin_id||'';if($m('rw-tg-token'))$m('rw-tg-token').value=d.telegram_token||'';if($m('rw-tg-admin'))$m('rw-tg-admin').value=d.telegram_admin_id||'';if($m('rw-token'))$m('rw-token').value=d.railway_token||'';if($m('rw-tg-notify-conn'))$m('rw-tg-notify-conn').checked=!!d.notify_connections;}}catch(e){}}
+async function saveSettings(){const tok=$m('tg-token').value.trim();const adm=$m('tg-admin-id').value.trim();try{const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm})});if(r.ok)toast('Bot settings saved & restarted');else toast('Failed to save settings',true);}catch(e){toast('Error saving settings',true)}}
+async function saveAllSettings(){const tok=($m('rw-tg-token')?.value||'').trim();const adm=($m('rw-tg-admin')?.value||'').trim();const rwt=($m('rw-token')?.value||'').trim();const notifyConn=!!($m('rw-tg-notify-conn')?.checked);try{const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm,railway_token:rwt,notify_connections:notifyConn})});if(r.ok)toast('All settings saved');else toast('Failed to save settings',true);}catch(e){toast('Error saving settings',true)}}
+async function fetchRailwayProjects(){const token=$m('rw-token').value.trim();if(!token){toast('Enter your Railway token first',true);return}const btn=$m('rw-fetch-btn');const sel=$m('rw-project');btn.disabled=true;btn.textContent='Loading...';sel.disabled=true;sel.innerHTML='<option>Loading...</option>';$m('rw-volume-info').style.display='none';try{const r=await fetch('/api/railway/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(!r.ok)throw new Error((await r.json()).detail||'Error');const d=await r.json();sel.innerHTML='<option value="">-- Select a project --</option>'+d.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');sel.disabled=false;toast('Found '+d.projects.length+' project(s)');}catch(e){toast(e.message||'Failed to fetch projects',true);sel.innerHTML='<option value="">Error loading</option>'}finally{btn.disabled=false;btn.textContent=btn.getAttribute('data-'+lang)||'Fetch'}}
+async function checkRailwayVolume(){const token=$m('rw-token').value.trim();const pid=$m('rw-project').value;if(!token||!pid){toast('Select a project first',true);return}const info=$m('rw-volume-info');const icon=$m('rw-volume-icon');const title=$m('rw-volume-title');const desc=$m('rw-volume-desc');const cbtn=$m('rw-create-btn');info.style.display='';icon.textContent='⏳';title.textContent='Checking...';desc.textContent='';cbtn.style.display='none';try{const r=await fetch('/api/railway/volume-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,project_id:pid})});if(!r.ok)throw new Error((await r.json()).detail||'Error');const d=await r.json();const hasData=d.has_data_volume;if(hasData){icon.textContent='✅';icon.style.color='var(--vanta-green)';title.textContent='Volume at /data exists!';const v=d.volumes.find(x=>x.path==='data'||x.path==='/data')||d.volumes[0];desc.textContent=(v?'ID: '+v.id+' | Name: '+v.name+' | State: '+v.state:'');cbtn.style.display='none';$m('rdb-status').textContent='✅ Active';$m('rdb-status').style.color='var(--vanta-green)';}else{icon.textContent='⏳';title.textContent='No volume found, creating one automatically...';desc.textContent='';$m('rdb-status').textContent='⏳ Creating...';$m('rdb-status').style.color='var(--vanta-gold)';await createRailwayVolume(true);}}catch(e){toast(e.message||'Failed to check',true);info.style.display='none'}}
+async function createRailwayVolume(silent){const token=$m('rw-token').value.trim();const pid=$m('rw-project').value;if(!token||!pid){toast('Select a project first',true);return}const icon=$m('rw-volume-icon');const title=$m('rw-volume-title');const desc=$m('rw-volume-desc');const cbtn=$m('rw-create-btn');cbtn.disabled=true;cbtn.textContent='Creating...';try{const r=await fetch('/api/railway/create-volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,project_id:pid})});if(!r.ok)throw new Error((await r.json()).detail||'Error');if(!silent)toast('Volume created successfully!');else toast('/data volume created automatically');icon.textContent='✅';icon.style.color='var(--vanta-green)';title.textContent='Volume at /data created!';desc.textContent='It may take a few seconds to finish provisioning.';cbtn.style.display='none';$m('rdb-status').textContent='✅ Active';$m('rdb-status').style.color='var(--vanta-green)';}catch(e){icon.textContent='❌';icon.style.color='var(--vanta-red)';title.textContent='No volume at /data found';desc.textContent=e.message||'Failed to auto-create volume. Click below to retry.';cbtn.style.display='';$m('rdb-status').textContent='❌ Missing';$m('rdb-status').style.color='var(--vanta-red)';toast(e.message||'Failed to create volume',true);}finally{cbtn.disabled=false;cbtn.textContent=cbtn.getAttribute('data-'+lang)||'Create Volume'}}
+document.addEventListener('change',function(e){if(e.target.id==='rw-project'&&e.target.value){checkRailwayVolume();}});
+async function loadStats(){try{const r=await fetch('/stats');if(r.status===401){showLogin();return}if(!r.ok)throw new Error();sData=await r.json();$m('sv-traffic').innerHTML=(sData.total_traffic_mb||0)+'<span class="stat-unit"> MB</span>';$m('sv-links').textContent=sData.links_count||0;$m('sv-uptime').textContent=sData.uptime||'-';$m('sv-domain').textContent=sData.domain||'-';$m('nb').textContent=sData.links_count||0;$m('last-up').textContent='Updated '+new Date().toLocaleTimeString();if($m('t-tr'))$m('t-tr').textContent=(sData.total_traffic_mb||0)+' MB';if($m('t-rq'))$m('t-rq').textContent=(sData.total_requests||0).toLocaleString();if($m('t-up'))$m('t-up').textContent=sData.uptime||'-';if(sData.cpu_percent!==undefined){const c=sData.cpu_percent;const cc=c>80?'var(--vanta-red)':c>50?'var(--vanta-gold)':'var(--vanta-purple)';$m('cpu-v').textContent=c.toFixed(1)+'%';$m('cpu-v').style.color=cc;$m('cpu-b').style.width=c+'%';$m('cpu-b').style.background=cc;}if(sData.memory_percent!==undefined){const m=sData.memory_percent;const mc=m>80?'var(--vanta-red)':m>50?'var(--vanta-gold)':'var(--vanta-green)';$m('mem-v').textContent=m.toFixed(1)+'%';$m('mem-v').style.color=mc;$m('mem-b').style.width=m+'%';$m('mem-b').style.background=mc;}updChart();}catch(e){}}
+async function loadLinks(){try{const r=await fetch('/api/links');if(r.status===401){showLogin();return}if(!r.ok)throw new Error();const d=await r.json();allLinks=d.links||[];filterLinks();}catch(e){}}
+async function chgPw(){const cur=$m('cpw').value;const nw=$m('npw').value;if(!cur||!nw){toast('Fill all fields',true);return}if(nw.length<4){toast('Password must be at least 4 characters',true);return}try{const r=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:nw})});if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||'Error')}toast('Password updated');$m('cpw').value='';$m('npw').value='';}catch(e){toast(e.message,true)}}
+function initChart(){const ctx=$m('tc');if(!ctx||tChart)return;tChart=new Chart(ctx,{type:'bar',data:{labels:[],datasets:[{label:'MB',data:[],backgroundColor:'rgba(108,99,255,0.4)',borderColor:'#6C63FF',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'rgba(108,99,255,0.35)',font:{size:10}}},y:{grid:{color:'rgba(108,99,255,0.06)'},ticks:{color:'rgba(108,99,255,0.35)',font:{size:10},callback:v=>v+' MB'},beginAtZero:true}}});const ctx2=$m('inbound-chart');if(ctx2&&!iChart){iChart=new Chart(ctx2,{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{color:'rgba(255,255,255,0.6)',font:{size:10}}}}}});}updChartColors();}
+function updChartColors(){if(!tChart)return;const col=theme==='light'?'rgba(0,0,0,0.4)':'rgba(108,99,255,0.35)';const gridCol=theme==='light'?'rgba(0,0,0,0.06)':'rgba(108,99,255,0.06)';tChart.options.scales.x.ticks.color=col;tChart.options.scales.y.ticks.color=col;tChart.options.scales.y.grid.color=gridCol;tChart.update();}
+function updChart(){if(!tChart||!sData.hourly_traffic)return;const entries=Object.entries(sData.hourly_traffic).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);tChart.data.labels=entries.map(x=>{const p=x[0].split(' ');return p.length>1?p[1]:p[0]});tChart.data.datasets[0].data=entries.map(x=>Math.round(x[1]/1048576));tChart.update();}
+async function loadAddrs(){try{const r=await fetch('/api/addresses');if(!r.ok)throw new Error();const d=await r.json();allAddrs=d.addresses||[];renderAddrs();}catch(e){}}
+function renderAddrs(){const el=$m('addr-list');if(!el)return;if(!allAddrs||!allAddrs.length){el.innerHTML='<div style="color:var(--vanta-text3);font-size:12px">No addresses added</div>';return}el.innerHTML=allAddrs.map((a,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--vanta-glass2);border:1px solid var(--vanta-border);border-radius:10px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><span style="color:var(--vanta-gold);font-size:16px">🌐</span><div><div style="font-size:14px;font-weight:600">${esc(a)}</div><div style="font-size:11px;color:var(--vanta-text3);margin-top:2px">Address #${i+1}</div></div></div><button class="act-btn act-del" onclick="delAddr(${i})">${tr('del')}</button></div>`).join('');}
 function showAddAddrMo(){$m('na').value='';$m('mo-addr').classList.add('show')}
-
-// ── Notifications ────────────────────────────────────────────────────────
-const NOTIF_ICONS = {update:'🔔',quota:'⚠️',expiry:'⏰',info:'ℹ️'};
-
-async function loadNotifs(){
-  try{
-    const r=await fetch('/api/notifications');
-    if(r.status===401)return;
-    if(!r.ok)return;
-    const d=await r.json();
-    renderNotifs(d.notifications||[]);
-  }catch(e){}
-}
-
-function renderNotifs(notifs){
-  const el=$m('notif-list');
-  if(!el)return;
-  if(!notifs||!notifs.length){
-    el.innerHTML='<div class="empty" style="padding:32px">'+(lang==='fa'?'هیچ اعلانی وجود ندارد':'No notifications')+'</div>';
-    return;
-  }
-  el.innerHTML=notifs.map(n=>{
-    const icon=NOTIF_ICONS[n.type]||'ℹ️';
-    const cls=n.seen?'':'unseen';
-    const time=new Date(n.created_at).toLocaleString();
-    const linkHtml=n.link?`<a href="${esc(n.link)}" target="_blank" class="notif-link">${tr('gh')} ↗</a>`:'';
-    return `<div class="notif-item ${cls}" onclick="markSeen(${n.id})">
-      <div class="notif-icon ${n.type}">${icon}</div>
-      <div class="notif-body">
-        <div class="notif-title">${esc(n.title)}</div>
-        <div class="notif-msg">${esc(n.message)}</div>
-        <div class="notif-time">${time}</div>
-        ${linkHtml}
-      </div>
-      ${n.seen?'':'<div class="notif-dot"></div>'}
-    </div>`;
-  }).join('');
-}
-
-async function markSeen(id){
-  await fetch('/api/notifications/'+id+'/seen',{method:'POST'});
-  await loadNotifs();
-  await updateNotifBadge();
-}
-
-async function markAllSeen(){
-  await fetch('/api/notifications/seen-all',{method:'POST'});
-  await loadNotifs();
-  await updateNotifBadge();
-}
-
-async function clearNotifs(){
-  if(!confirm(lang==='fa'?'حذف همه اعلانات؟':'Clear all notifications?'))return;
-  await fetch('/api/notifications',{method:'DELETE'});
-  await loadNotifs();
-  await updateNotifBadge();
-}
-
-async function updateNotifBadge(){
-  try{
-    const r=await fetch('/api/notifications/count');
-    if(!r.ok)return;
-    const d=await r.json();
-    const badge=$m('notif-badge');
-    if(badge){
-      if(d.count>0){badge.style.display='';badge.textContent=d.count}
-      else{badge.style.display='none'}
-    }
-  }catch(e){}
-}
-
-async function addAddrs(){
-  const lines=($m('na').value||'').trim().split('\n').map(l=>l.trim()).filter(l=>l);
-  let ok=0,fail=0;
-  for(const a of lines){
-    if(!/^[a-zA-Z0-9\-_. ]+$/.test(a)){fail++;continue}
-    try{
-      const r=await fetch('/api/addresses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address:a})});
-      if(r.ok)ok++;else fail++;
-    }catch(e){fail++}
-  }
-  if(ok)toast('Added '+ok);
-  if(fail)toast(fail+' failed',true);
-  if(ok){$m('mo-addr').classList.remove('show');await loadAddrs()}
-}
-
-async function delAddr(i){
-  if(!confirm('Delete this address?'))return;
-  try{
-    const r=await fetch('/api/addresses/'+i,{method:'DELETE'});
-    if(!r.ok)throw new Error();
-    toast('Deleted');await loadAddrs();
-  }catch(e){toast('Error deleting',true)}
-}
-
-async function delAllAddrs(){
-  if(!allAddrs||!allAddrs.length){toast('No addresses to delete',true);return}
-  if(!confirm('Delete ALL clean IP addresses?'))return;
-  try{
-    const r=await fetch('/api/addresses',{method:'DELETE'});
-    if(!r.ok)throw new Error();
-    toast('All addresses deleted');await loadAddrs();
-  }catch(e){toast('Error deleting',true)}
-}
-
-// همه‌ی آی‌پی‌های railway_ips.txt رو یکجا (یک درخواست، بدون تاخیر
-// به‌ازای هر آی‌پی) به لیست Clean IP اضافه می‌کنه.
-async function importAddrs(source){
-  try{
-    const r=await fetch('/api/addresses/import/'+source,{method:'POST'});
-    const d=await r.json().catch(()=>null);
-    if(!r.ok){toast((d&&d.detail)||'Error importing',true);return}
-    toast((d.added||0)+' address(es) added, '+((d.total_in_file||0)-(d.added||0))+' already existed');
-    await loadAddrs();
-  }catch(e){toast('Error importing',true)}
-}
-
-setTheme(theme);
-setLang(lang);
-checkAuth();
-let statsInterval=null;
-function startPolling(){
-  if(statsInterval)clearInterval(statsInterval);
-  statsInterval=setInterval(()=>{if(isAuthenticated){loadStats();loadLinks();updateNotifBadge()}},12000);
-}
-startPolling();
-
-// ── Panel update notifications (checks GitHub for new releases) ────────
-const PANEL_VERSION_KEY='vanta_panel_last_version';
-const PANEL_GH_NOTIFIED_KEY='vanta_panel_last_notified_gh';
-let loadedPanelVersion=null;
-
-async function checkPanelVersion(isPeriodic){
-  try{
-    const r=await fetch('/api/version');
-    if(!r.ok)return;
-    const d=await r.json();
-    const serverVersion=d.version;
-
-    // Detect that this panel instance was updated since the last time we visited
-    if(!loadedPanelVersion){
-      loadedPanelVersion=serverVersion;
-      const lastSeen=localStorage.getItem(PANEL_VERSION_KEY);
-      if(lastSeen&&lastSeen!==serverVersion){
-        toast('✅ Panel updated successfully to v'+serverVersion);
-      }
-      localStorage.setItem(PANEL_VERSION_KEY,serverVersion);
-    }
-
-    // Detect that GitHub has a newer release than what's currently running
-    if(d.update_available&&d.latest_github_version){
-      const alreadyNotified=localStorage.getItem(PANEL_GH_NOTIFIED_KEY);
-      if(alreadyNotified!==d.latest_github_version){
-        toast('🚀 New version available on GitHub: '+d.latest_github_version+' - pull the latest update');
-        localStorage.setItem(PANEL_GH_NOTIFIED_KEY,d.latest_github_version);
-      }
-    }
-  }catch(e){}
-}
-checkPanelVersion(false);
-setInterval(()=>checkPanelVersion(true),5*60*1000);
+const NOTIF_ICONS={update:'🔔',quota:'⚠️',expiry:'⏰',info:'ℹ️'};
+async function loadNotifs(){try{const r=await fetch('/api/notifications');if(r.status===401)return;if(!r.ok)return;const d=await r.json();renderNotifs(d.notifications||[]);}catch(e){}}
+function renderNotifs(notifs){const el=$m('notif-list');if(!el)return;if(!notifs||!notifs.length){el.innerHTML='<div class="empty" style="padding:32px">'+(lang==='fa'?'هیچ اعلانی وجود ندارد':'No notifications')+'</div>';return;}el.innerHTML=notifs.map(n=>{const icon=NOTIF_ICONS[n.type]||'ℹ️';const cls=n.seen?'':'unseen';const time=new Date(n.created_at).toLocaleString();const linkHtml=n.link?`<a href="${esc(n.link)}" target="_blank" class="notif-link">${tr('gh')} ↗</a>`:'';return `<div class="notif-item ${cls}" onclick="markSeen(${n.id})"><div class="notif-icon ${n.type}">${icon}</div><div class="notif-body"><div class="notif-title">${esc(n.title)}</div><div class="notif-msg">${esc(n.message)}</div><div class="notif-time">${time}</div>${linkHtml}</div>${n.seen?'':'<div class="notif-dot"></div>'}</div>`;}).join('');}
+async function markSeen(id){await fetch('/api/notifications/'+id+'/seen',{method:'POST'});await loadNotifs();await updateNotifBadge();}
+async function markAllSeen(){await fetch('/api/notifications/seen-all',{method:'POST'});await loadNotifs();await updateNotifBadge();}
+async function clearNotifs(){if(!confirm(lang==='fa'?'حذف همه اعلانات؟':'Clear all notifications?'))return;await fetch('/api/notifications',{method:'DELETE'});await loadNotifs();await updateNotifBadge();}
+async function updateNotifBadge(){try{const r=await fetch('/api/notifications/count');if(!r.ok)return;const d=await r.json();const badge=$m('notif-badge');if(badge){if(d.count>0){badge.style.display='';badge.textContent=d.count;}else{badge.style.display='none';}}}catch(e){}}
+async function addAddrs(){const lines=($m('na').value||'').trim().split('\n').map(l=>l.trim()).filter(l=>l);let ok=0,fail=0;for(const a of lines){if(!/^[a-zA-Z0-9\-_. ]+$/.test(a)){fail++;continue}try{const r=await fetch('/api/addresses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address:a})});if(r.ok)ok++;else fail++;}catch(e){fail++}}if(ok)toast('Added '+ok);if(fail)toast(fail+' failed',true);if(ok){$m('mo-addr').classList.remove('show');await loadAddrs()}}
+async function delAddr(i){if(!confirm('Delete this address?'))return;try{const r=await fetch('/api/addresses/'+i,{method:'DELETE'});if(!r.ok)throw new Error();toast('Deleted');await loadAddrs();}catch(e){toast('Error deleting',true)}}
+async function delAllAddrs(){if(!allAddrs||!allAddrs.length){toast('No addresses to delete',true);return}if(!confirm('Delete ALL clean IP addresses?'))return;try{const r=await fetch('/api/addresses',{method:'DELETE'});if(!r.ok)throw new Error();toast('All addresses deleted');await loadAddrs();}catch(e){toast('Error deleting',true)}}
+async function importAddrs(source){try{const r=await fetch('/api/addresses/import/'+source,{method:'POST'});const d=await r.json().catch(()=>null);if(!r.ok){toast((d&&d.detail)||'Error importing',true);return}toast((d.added||0)+' address(es) added, '+((d.total_in_file||0)-(d.added||0))+' already existed');await loadAddrs();}catch(e){toast('Error importing',true)}}
+setTheme(theme);setLang(lang);checkAuth();let statsInterval=null;function startPolling(){if(statsInterval)clearInterval(statsInterval);statsInterval=setInterval(()=>{if(isAuthenticated){loadStats();loadLinks();updateNotifBadge()}},12000);}startPolling();
+const PANEL_VERSION_KEY='vanta_panel_last_version';const PANEL_GH_NOTIFIED_KEY='vanta_panel_last_notified_gh';let loadedPanelVersion=null;
+async function checkPanelVersion(isPeriodic){try{const r=await fetch('/api/version');if(!r.ok)return;const d=await r.json();const serverVersion=d.version;if(!loadedPanelVersion){loadedPanelVersion=serverVersion;const lastSeen=localStorage.getItem(PANEL_VERSION_KEY);if(lastSeen&&lastSeen!==serverVersion){toast('✅ Panel updated successfully to v'+serverVersion);}localStorage.setItem(PANEL_VERSION_KEY,serverVersion);}if(d.update_available&&d.latest_github_version){const alreadyNotified=localStorage.getItem(PANEL_GH_NOTIFIED_KEY);if(alreadyNotified!==d.latest_github_version){toast('🚀 New version available on GitHub: '+d.latest_github_version+' - pull the latest update');localStorage.setItem(PANEL_GH_NOTIFIED_KEY,d.latest_github_version);}}}catch(e){}}
+checkPanelVersion(false);setInterval(()=>checkPanelVersion(true),5*60*1000);
 </script>
 </body>
 </html>"""
