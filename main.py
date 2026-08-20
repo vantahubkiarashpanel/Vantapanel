@@ -111,14 +111,8 @@ async def check_github_latest(force: bool = False) -> dict:
     finally:
         conn.close()
 
-    # Create notification if a new version is detected
-    if new_tag and new_tag != cached_tag and cached_tag:
-        await create_notification(
-            type="update",
-            title=f"New version: {new_tag}",
-            message=f"Panel version {cached_tag} → {new_tag} is available on GitHub.",
-            link=new_url,
-        )
+    # GitHub version checks remain available for diagnostics, but the panel no longer
+    # creates a first-visit/update notification for new GitHub versions.
 
     return {"tag": new_tag, "url": new_url, "checked_at": now}
 
@@ -2406,6 +2400,61 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 .top-actions{{display:flex!important;align-items:center!important;gap:10px!important;margin-left:auto!important}}
 .sb-bottom .legacy-controls{{display:none!important}}
 
+/* ===== VANTA COMMAND CENTER DASHBOARD ===== */
+.vc-dashboard{{display:flex;flex-direction:column;gap:14px}}
+.vc-topline{{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}}
+.vc-title{{font-size:22px;font-weight:800;letter-spacing:-.03em;color:#f5f3ff}}
+.vc-updated{{font-size:10px;color:rgba(255,255,255,.36)}}
+.vc-metrics{{display:grid;grid-template-columns:1.45fr repeat(5,1fr);gap:10px}}
+.vc-metric{{min-height:84px;border:1px solid rgba(139,92,246,.16);border-radius:12px;background:linear-gradient(145deg,rgba(17,18,31,.96),rgba(10,11,20,.96));padding:16px 17px;position:relative;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.12)}}
+.vc-metric:after{{content:'';position:absolute;left:16px;bottom:12px;width:48px;height:3px;border-radius:5px;background:linear-gradient(90deg,#7c3aed,#a855f7);box-shadow:0 0 12px rgba(168,85,247,.4)}}
+.vc-metric-icon{{width:38px;height:38px;border-radius:10px;background:rgba(139,92,246,.10);color:#a78bfa;display:flex;align-items:center;justify-content:center;font-size:19px;float:left;margin-right:12px}}
+.vc-metric-label{{font-size:9px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.52);text-transform:uppercase;margin:1px 0 8px}}
+.vc-metric-value{{font-size:17px;font-weight:800;color:#f5f3ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.vc-metric-value.green{{color:#34e88a}}
+.vc-main-grid{{display:grid;grid-template-columns:1.05fr 1.75fr 1.05fr;gap:10px;align-items:stretch}}
+.vc-panel{{border:1px solid rgba(139,92,246,.15);border-radius:12px;background:linear-gradient(145deg,rgba(17,18,31,.97),rgba(10,11,20,.97));box-shadow:0 14px 35px rgba(0,0,0,.12);overflow:hidden}}
+.vc-panel-hd{{height:56px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.06)}}
+.vc-panel-title{{font-size:13px;font-weight:800;color:#f5f3ff;letter-spacing:.01em}}
+.vc-panel-title .dot{{display:inline-block;width:7px;height:7px;border-radius:50%;background:#a855f7;box-shadow:0 0 10px rgba(168,85,247,.8);margin-right:7px}}
+.vc-health{{padding:22px 18px 17px}}
+.vc-rings{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}
+.vc-ring-item{{text-align:center}}
+.vc-ring{{width:104px;height:104px;margin:0 auto 10px;border-radius:50%;background:conic-gradient(#8b5cf6 calc(var(--p)*1%),rgba(255,255,255,.09) 0);position:relative;display:grid;place-items:center}}
+.vc-ring:before{{content:'';width:80px;height:80px;border-radius:50%;background:#11121f;position:absolute}}
+.vc-ring span{{position:relative;font-size:18px;font-weight:800;color:#fff}}
+.vc-ring-label{{font-size:9px;color:rgba(255,255,255,.5);font-weight:700;text-transform:uppercase}}
+.vc-mini-stats{{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}}
+.vc-mini{{padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:9px;background:rgba(255,255,255,.018)}}
+.vc-mini b{{display:block;font-size:9px;color:rgba(255,255,255,.42);margin-bottom:5px;text-transform:uppercase}}
+.vc-mini span{{font-size:13px;font-weight:700;color:#fff}}
+.vc-chart{{height:302px;padding:14px 18px 17px}}
+.vc-chart canvas{{width:100%!important;height:100%!important}}
+.vc-signal{{padding:18px}}
+.vc-signal-art{{height:178px;border-radius:10px;background:radial-gradient(circle at 50% 50%,rgba(139,92,246,.24),transparent 28%),radial-gradient(circle at 50% 50%,rgba(139,92,246,.08),transparent 58%),#0d0f1b;position:relative;overflow:hidden;display:grid;place-items:center}}
+.vc-signal-art:before,.vc-signal-art:after{{content:'';position:absolute;border:1px solid rgba(139,92,246,.3);border-radius:50%;width:115px;height:115px}}.vc-signal-art:after{{width:165px;height:165px;border-color:rgba(139,92,246,.18)}}
+.vc-core{{width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff,0 0 24px #a855f7,0 0 45px rgba(168,85,247,.8);z-index:2}}
+.vc-signal-row{{margin-top:14px;padding:13px;border:1px solid rgba(255,255,255,.07);border-radius:9px}}
+.vc-signal-row-top{{display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.55);margin-bottom:9px}}.vc-signal-row-top b{{color:#c4b5fd}}
+.vc-progress{{height:5px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}}.vc-progress i{{display:block;height:100%;width:98%;background:linear-gradient(90deg,#6d28d9,#a855f7);border-radius:6px}}
+.vc-bottom-grid{{display:grid;grid-template-columns:1.05fr 1.75fr 1.05fr;gap:10px}}
+.vc-actions{{padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}}
+.vc-action{{border:1px solid rgba(139,92,246,.12);border-radius:9px;background:rgba(139,92,246,.07);color:#ddd6fe;padding:12px 7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;transition:.18s}}.vc-action:hover{{background:rgba(139,92,246,.16);border-color:rgba(139,92,246,.35);transform:translateY(-1px)}}
+.vc-action b{{display:block;font-size:17px;margin-bottom:5px;color:#a78bfa}}
+.vc-table{{padding:0 16px 12px}}.vc-table table{{width:100%;border-collapse:collapse}}.vc-table th{{font-size:8px;text-transform:uppercase;color:rgba(255,255,255,.34);text-align:left;padding:11px 7px;border-bottom:1px solid rgba(255,255,255,.06)}}.vc-table td{{font-size:10px;color:#ddd;padding:12px 7px;border-bottom:1px solid rgba(255,255,255,.045)}}.vc-status{{display:inline-flex;padding:4px 8px;border-radius:6px;background:rgba(34,197,94,.11);border:1px solid rgba(34,197,94,.25);color:#4ade80;font-size:8px;font-weight:800}}
+.vc-info{{padding:8px 18px 14px}}.vc-info-row{{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.055);font-size:9px;color:rgba(255,255,255,.48)}}.vc-info-row:last-child{{border-bottom:0}}.vc-info-row b{{color:#fff;font-size:10px;text-align:right;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.vc-footer{{display:flex;justify-content:center;gap:10px;padding:8px 0 2px;color:rgba(255,255,255,.3);font-size:9px}}.vc-footer a{{color:#a78bfa;text-decoration:none}}
+/* Make the navigation unmistakably horizontal and remove the old sidebar controls/logo. */
+.sidebar .sb-hat,.sidebar .sb-social,.sidebar .legacy-controls{{display:none!important}}
+.sidebar{{position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;width:100%!important;height:70px!important;min-height:70px!important;padding:0 30px!important;display:flex!important;flex-direction:row!important;align-items:center!important;gap:24px!important;background:rgba(6,7,13,.96)!important;border:0!important;border-bottom:1px solid rgba(139,92,246,.16)!important;z-index:1000!important;box-sizing:border-box!important;backdrop-filter:blur(18px)!important}}
+.sb-brand{{width:180px!important;min-width:180px!important;padding:0!important;border:0!important}}.sb-title{{font-size:24px!important;font-weight:900!important;letter-spacing:-.04em!important;color:#fff!important}}.sb-title:after{{display:none!important}}
+.sb-nav{{display:flex!important;flex-direction:row!important;align-items:center!important;gap:5px!important;flex:1!important;min-width:0!important;overflow-x:auto!important;scrollbar-width:none!important}}.sb-nav::-webkit-scrollbar{{display:none!important}}
+.nav-item{{width:auto!important;min-width:auto!important;height:42px!important;display:flex!important;flex:0 0 auto!important;flex-direction:row!important;align-items:center!important;gap:8px!important;padding:0 14px!important;border-radius:9px!important;border:1px solid transparent!important;background:transparent!important;color:rgba(255,255,255,.56)!important;font-size:12px!important;font-weight:600!important;white-space:nowrap!important}}.nav-item:hover{{background:rgba(139,92,246,.08)!important;color:#fff!important}}.nav-item.active{{background:linear-gradient(135deg,rgba(139,92,246,.28),rgba(168,85,247,.13))!important;border-color:rgba(139,92,246,.55)!important;color:#fff!important;box-shadow:0 0 22px rgba(139,92,246,.12)!important}}.nav-icon{{width:15px!important;height:15px!important}}.nav-label{{font-size:12px!important}}.sb-bottom{{width:auto!important;padding:0!important;margin:0!important;border:0!important}}.top-actions{{display:flex!important;align-items:center!important;gap:9px!important}}.top-status{{height:36px!important;padding:0 13px!important;border-radius:18px!important}}.top-icon-btn{{width:38px!important;height:38px!important;border-radius:10px!important}}.top-user{{width:40px!important;height:40px!important}}
+.main{{margin-left:0!important;padding:90px 30px 35px!important}}.mob-hd{{display:none!important}}
+@media(max-width:1250px){{.vc-metrics{{grid-template-columns:repeat(3,1fr)}}.vc-main-grid,.vc-bottom-grid{{grid-template-columns:1fr 1.5fr}}.vc-main-grid .vc-panel:last-child,.vc-bottom-grid .vc-panel:last-child{{grid-column:1/-1}}}}
+@media(max-width:900px){{.sidebar{{padding:0 14px!important;gap:10px!important}}.sb-brand{{width:auto!important;min-width:92px!important}}.sb-nav{{gap:2px!important}}.nav-item{{padding:0 10px!important}}.nav-label{{display:none!important}}.nav-icon{{width:17px!important;height:17px!important}}.vc-main-grid,.vc-bottom-grid{{grid-template-columns:1fr}}.vc-main-grid .vc-panel:last-child,.vc-bottom-grid .vc-panel:last-child{{grid-column:auto}}.main{{padding:86px 14px 28px!important}}}}
+@media(max-width:620px){{.vc-metrics{{grid-template-columns:repeat(2,1fr)}}.vc-metric:first-child{{grid-column:1/-1}}.vc-actions{{grid-template-columns:repeat(2,1fr)}}.top-status{{display:none!important}}.sb-brand{{min-width:70px!important}}.sb-title{{font-size:20px!important}}.sidebar{{height:62px!important;min-height:62px!important}}.main{{padding-top:76px!important}}}}
+
 @media(max-width:1100px){{
   .sidebar{{padding:0 18px!important;gap:14px!important}}
   .sb-brand{{width:130px!important;min-width:130px!important}}
@@ -3836,63 +3885,18 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 
   <!-- TOP NAVIGATION -->
   <aside class="sidebar" id="sb">
-    <div class="sb-brand" aria-label="VANTA Panel">
-      <div class="sb-title">VANTA</div>
-    </div>
-
+    <div class="sb-brand" aria-label="VANTA Panel"><div class="sb-title">VANTA</div></div>
     <nav class="sb-nav" aria-label="Primary navigation">
-      <button class="nav-item active" data-page="dashboard">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/></svg>
-        <span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span>
-      </button>
-      <button class="nav-item" data-page="inbounds">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-        <span class="nav-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</span>
-        <span class="nav-badge" id="nb">0</span>
-      </button>
-      <button class="nav-item" data-page="traffic">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h4l3-9 4 12 3-7h4"/></svg>
-        <span class="nav-label" data-en="Traffic" data-fa="ترافیک">Traffic</span>
-      </button>
-      <button class="nav-item" data-page="addresses">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18"/><path d="M12 3a14 14 0 000 18"/></svg>
-        <span class="nav-label" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</span>
-      </button>
-      <button class="nav-item" data-page="notifications">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
-        <span class="nav-label" data-en="Notifications" data-fa="اعلانات">Notifications</span>
-        <span class="nav-badge" id="notif-badge" style="display:none">0</span>
-      </button>
-      <button class="nav-item" data-page="security">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
-        <span class="nav-label" data-en="Security" data-fa="امنیت">Security</span>
-      </button>
-      <button class="nav-item" data-page="settings">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.1H10v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.1v4h-.1a1.7 1.7 0 00-1.6 1z"/></svg>
-        <span class="nav-label" data-en="Settings" data-fa="تنظیمات">Settings</span>
-      </button>
+      <button class="nav-item active" data-page="dashboard"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/></svg><span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span></button>
+      <button class="nav-item" data-page="inbounds"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 12h8"/><path d="M12 8v8"/></svg><span class="nav-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</span><span class="nav-badge" id="nb">0</span></button>
+      <button class="nav-item" data-page="traffic"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h4l3-9 4 12 3-7h4"/></svg><span class="nav-label" data-en="Traffic" data-fa="ترافیک">Traffic</span></button>
+      <button class="nav-item" data-page="inbounds"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18"/></svg><span class="nav-label" data-en="Clients" data-fa="کلاینت‌ها">Clients</span></button>
+      <button class="nav-item" data-page="traffic"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 17l5-5 4 3 7-9"/><path d="M17 6h3v3"/></svg><span class="nav-label" data-en="Analytics" data-fa="آنالیز">Analytics</span></button>
+      <button class="nav-item" data-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.1H10v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1z"/></svg><span class="nav-label" data-en="Settings" data-fa="تنظیمات">Settings</span></button>
+      <button class="nav-item" data-page="notifications"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg><span class="nav-label" data-en="Logs" data-fa="لاگ‌ها">Logs</span><span class="nav-badge" id="notif-badge" style="display:none">0</span></button>
+      <button class="nav-item" data-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 015 5L13 18l-3-3 6.7-6.7a4 4 0 01-2-2z"/><path d="M8 16l-5 5"/></svg><span class="nav-label" data-en="Tools" data-fa="ابزارها">Tools</span></button>
     </nav>
-
-    <div class="sb-bottom">
-      <div class="top-actions">
-        <div class="top-status"><span class="top-status-dot"></span><span data-en="Online" data-fa="آنلاین">Online</span></div>
-        <button class="top-icon-btn" onclick="showPage('notifications')" title="Notifications" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
-          <span class="nav-badge" id="top-notif-badge" style="display:none;top:1px;right:1px">0</span>
-        </button>
-        <button class="top-user" onclick="doLogout()" title="Logout" aria-label="Logout">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21c.8-4 3.2-6 7-6s6.2 2 7 6"/></svg>
-        </button>
-      </div>
-      <div class="legacy-controls">
-        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-desk">🌙 Theme</button>
-        <div class="lang-row">
-          <button class="lang-btn lang-en active" onclick="setLang('en')">EN</button>
-          <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
-        </div>
-        <button class="logout-btn" onclick="doLogout"><span data-en="Logout" data-fa="خروج">Logout</span></button>
-      </div>
-    </div>
+    <div class="sb-bottom"><div class="top-actions"><div class="top-status"><span class="top-status-dot"></span><span data-en="Online" data-fa="آنلاین">Online</span></div><button class="top-icon-btn" onclick="showPage('notifications')" title="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg><span class="nav-badge" id="top-notif-badge" style="display:none;top:1px;right:1px">0</span></button><button class="top-user" onclick="doLogout()" title="Logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21c.8-4 3.2-6 7-6s6.2 2 7 6"/></svg></button></div></div>
   </aside>
 
   <!-- MAIN CONTENT -->
@@ -3900,41 +3904,29 @@ body[dir="rtl"]{direction:rtl;text-align:right}
 
     <!-- Dashboard -->
     <section class="page active" id="page-dashboard">
-      <div class="page-header">
-        <div>
-          <div class="page-title" data-en="Dashboard" data-fa="داشبورد">Dashboard</div>
-          <div class="page-sub" id="last-up">-</div>
+      <div class="vc-dashboard">
+        <div class="vc-topline"><div class="vc-title">VANTA Dashboard</div><div class="vc-updated" id="last-up">-</div></div>
+        <div class="vc-metrics">
+          <div class="vc-metric"><div class="vc-metric-icon">◎</div><div class="vc-metric-label">Domain</div><div class="vc-metric-value" id="sv-domain">-</div></div>
+          <div class="vc-metric"><div class="vc-metric-icon">◷</div><div class="vc-metric-label">Uptime</div><div class="vc-metric-value" id="sv-uptime">-</div></div>
+          <div class="vc-metric"><div class="vc-metric-icon">≋</div><div class="vc-metric-label">Inbounds</div><div class="vc-metric-value" id="sv-links">-</div></div>
+          <div class="vc-metric"><div class="vc-metric-icon">↕</div><div class="vc-metric-label">Traffic Today</div><div class="vc-metric-value" id="sv-traffic">-<span class="stat-unit"> MB</span></div></div>
+          <div class="vc-metric"><div class="vc-metric-icon">♙</div><div class="vc-metric-label">Clients</div><div class="vc-metric-value" id="vc-clients">0</div></div>
+          <div class="vc-metric"><div class="vc-metric-icon">⌁</div><div class="vc-metric-label">System Load</div><div class="vc-metric-value green" id="vc-system">Normal</div></div>
         </div>
-      </div>
-
-      <div class="alerts-box" id="alerts-box">
-        <div class="alerts-title">
-          <span>⚠️</span>
-          <span data-en="SYSTEM WARNINGS" data-fa="هشدارهای سیستم">SYSTEM WARNINGS</span>
+        <div class="vc-main-grid">
+          <div class="vc-panel"><div class="vc-panel-hd"><div class="vc-panel-title">SERVER HEALTH</div><span>⋮</span></div><div class="vc-health"><div class="vc-rings"><div class="vc-ring-item"><div class="vc-ring" id="vc-cpu-ring" style="--p:0"><span id="cpu-v">0%</span></div><div class="vc-ring-label">CPU Usage</div></div><div class="vc-ring-item"><div class="vc-ring" id="vc-mem-ring" style="--p:0"><span id="mem-v">0%</span></div><div class="vc-ring-label">Memory Usage</div></div></div><div class="vc-mini-stats"><div class="vc-mini"><b>CPU Cores</b><span id="vc-cores">-</span></div><div class="vc-mini"><b>Total Memory</b><span id="vc-memory-total">-</span></div></div><div style="display:none"><div id="cpu-b"></div><div id="mem-b"></div></div></div></div>
+          <div class="vc-panel"><div class="vc-panel-hd"><div class="vc-panel-title">TRAFFIC TIMELINE</div><div style="font-size:10px;color:rgba(255,255,255,.45)">Today⌄</div></div><div class="vc-chart"><canvas id="tc"></canvas></div></div>
+          <div class="vc-panel"><div class="vc-panel-hd"><div class="vc-panel-title"><span class="dot"></span>LIVE SIGNAL</div><span>⋮</span></div><div class="vc-signal"><div class="vc-signal-art"><div class="vc-core"></div></div><div class="vc-signal-row"><div class="vc-signal-row-top"><span>Signal Strength</span><b>98%</b></div><div class="vc-progress"><i></i></div></div><div class="vc-signal-row"><div class="vc-signal-row-top"><span>Active Connections</span><b id="vc-connections">0</b></div></div></div></div>
         </div>
-        <div id="alerts-list"></div>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat-card" style="animation-delay:.08s"><div class="stat-label" data-en="Traffic" data-fa="ترافیک">Traffic</div><div class="stat-val" id="sv-traffic">-<span class="stat-unit"> MB</span></div></div>
-        <div class="stat-card" style="animation-delay:.16s"><div class="stat-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</div><div class="stat-val" id="sv-links">-</div></div>
-        <div class="stat-card" style="animation-delay:.24s"><div class="stat-label" data-en="Uptime" data-fa="آپتایم">Uptime</div><div class="stat-val" id="sv-uptime" style="font-size:15px">-</div></div>
-        <div class="stat-card" style="animation-delay:.32s"><div class="stat-label" data-en="Domain" data-fa="دامنه">Domain</div><div class="stat-val" id="sv-domain" style="font-size:10px;word-break:break-all;font-weight:500">-</div></div>
-      </div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="CPU" data-fa="پردازنده">CPU</div><span id="cpu-v" style="font-size:17px;font-weight:700;color:var(--gold)">-%</span></div>
-          <div class="sys-bar"><div class="sys-fill" id="cpu-b" style="background:var(--gold)"></div></div>
+        <div class="vc-bottom-grid">
+          <div class="vc-panel"><div class="vc-panel-hd"><div class="vc-panel-title">QUICK ACTIONS</div></div><div class="vc-actions"><button class="vc-action" onclick="showPage('inbounds')"><b>＋</b>Add Inbound</button><button class="vc-action" onclick="showPage('inbounds')"><b>♙</b>View Clients</button><button class="vc-action" onclick="showPage('traffic')"><b>↕</b>Traffic Stats</button><button class="vc-action" onclick="showPage('notifications')"><b>▤</b>System Logs</button><button class="vc-action" onclick="showPage('addresses')"><b>⌖</b>Clean IPs</button><button class="vc-action" onclick="showPage('settings')"><b>◉</b>Check Updates</button></div></div>
+          <div class="vc-panel"><div class="vc-panel-hd"><div class="vc-panel-title">RECENT INBOUNDS</div><button class="act-btn" onclick="showPage('inbounds')" style="padding:6px 10px">View All</button></div><div class="vc-table"><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Port</th><th>Clients</th><th>Traffic</th><th>Status</th></tr></thead><tbody id="vc-recent-inbounds"><tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3)">Loading…</td></tr></tbody></table></div></div>
+          <div class="vc-panel"><div class="vc-panel-hd"><div class="vc-panel-title">SYSTEM INFO</div></div><div class="vc-info"><div class="vc-info-row"><span>Panel Version</span><b>1.1.0</b></div><div class="vc-info-row"><span>Platform</span><b id="vc-platform">-</b></div><div class="vc-info-row"><span>Domain</span><b id="vc-info-domain">-</b></div><div class="vc-info-row"><span>Last Update</span><b id="vc-info-update">-</b></div></div></div>
         </div>
-        <div class="card">
-          <div class="card-hd"><div class="card-title" data-en="Memory" data-fa="حافظه">Memory</div><span id="mem-v" style="font-size:17px;font-weight:700;color:var(--green)">-%</span></div>
-          <div class="sys-bar"><div class="sys-fill" id="mem-b" style="background:var(--green)"></div></div>
-        </div>
+        <div class="vc-footer">© 2026 VANTA Panel · <a href="https://t.me/kiarash1792" target="_blank">@kiarash1792</a> · <a href="https://t.me/Vantahub1792" target="_blank">@Vantahub1792</a></div>
       </div>
-      <div class="card">
-        <div class="card-hd"><div class="card-title" data-en="Hourly Traffic" data-fa="ترافیک ساعتی">Hourly Traffic</div></div>
-        <div class="chart-container"><canvas id="tc"></canvas></div>
-      </div>
+      <div class="alerts-box" id="alerts-box" style="display:none"><div class="alerts-title"><span>⚠️</span><span data-en="SYSTEM WARNINGS" data-fa="هشدارهای سیستم">SYSTEM WARNINGS</span></div><div id="alerts-list"></div></div>
     </section>
 
     <!-- Inbounds -->
@@ -4877,7 +4869,14 @@ async function loadStats(){
       const mc=m>80?'var(--red)':m>50?'var(--yellow)':'var(--green)';
       $m('mem-v').textContent=m.toFixed(1)+'%';$m('mem-v').style.color=mc;
       $m('mem-b').style.width=m+'%';$m('mem-b').style.background=mc;
+      const mr=$m('vc-mem-ring'); if(mr) mr.style.setProperty('--p',m);
     }
+    const cr=$m('vc-cpu-ring'); if(cr&&sData.cpu_percent!==undefined) cr.style.setProperty('--p',sData.cpu_percent);
+    const sys=$m('vc-system'); if(sys&&sData.cpu_percent!==undefined){sys.textContent=sData.cpu_percent>80?'High':sData.cpu_percent>50?'Elevated':'Normal';sys.className='vc-metric-value '+(sData.cpu_percent<=50?'green':'');}
+    const dom=$m('vc-info-domain'); if(dom) dom.textContent=sData.domain||'-';
+    const upd=$m('vc-info-update'); if(upd) upd.textContent=new Date().toLocaleString();
+    const clients=$m('vc-clients'); if(clients) clients.textContent=sData.clients_count??sData.total_clients??0;
+    const con=$m('vc-connections'); if(con) con.textContent=sData.active_connections??0;
     updChart();
   }catch(e){}
 }
@@ -4889,6 +4888,11 @@ async function loadLinks(){
     if(!r.ok)throw new Error();
     const d=await r.json();
     allLinks=d.links||[];filterLinks();
+    const recent=$m('vc-recent-inbounds');
+    if(recent){
+      const rows=allLinks.slice(0,5);
+      recent.innerHTML=rows.length?rows.map((x,i)=>`<tr><td>${{i+1}}</td><td>${{esc(x.label||x.name||'default')}}</td><td>${{esc(x.type||'VLESS')}}</td><td>${{esc(String(x.port||443))}}</td><td>${{esc(String(x.clients||x.max_connections||0))}}</td><td>0 B / 0 B</td><td><span class="vc-status">Active</span></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3)">No inbounds</td></tr>';
+    }
   }catch(e){}
 }
 
@@ -4907,13 +4911,13 @@ function initChart(){
   const ctx=$m('tc');
   if(!ctx||tChart)return;
   tChart=new Chart(ctx,{
-    type:'bar',
-    data:{labels:[],datasets:[{label:'MB',data:[],backgroundColor:'rgba(255,215,0,0.4)',borderColor:'#FFD700',borderWidth:1,borderRadius:4}]},
+    type:'line',
+    data:{labels:[],datasets:[{label:'Traffic',data:[],borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.10)',borderWidth:2,pointRadius:2,pointBackgroundColor:'#4ade80',pointBorderColor:'#4ade80',fill:true,tension:.35}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
       scales:{
-        x:{grid:{display:false},ticks:{color:'rgba(255,215,0,0.35)',font:{size:10}}},
-        y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'rgba(255,215,0,0.35)',font:{size:10},callback:v=>v+' MB'},beginAtZero:true}
+        x:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'rgba(255,255,255,.42)',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'rgba(255,255,255,.42)',font:{size:9},callback:v=>v+' MB'},beginAtZero:true}
       }
     }
   });
