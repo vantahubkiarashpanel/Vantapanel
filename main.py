@@ -53,10 +53,16 @@ logging.getLogger("uvicorn.access").addHandler(q_handler)
 
 app = FastAPI(title="VANTA Panel", docs_url=None, redoc_url=None)
 
+# Bump this on every release so the dashboard can notify already-open sessions
+# that a new version is available / was just applied.
 PANEL_VERSION = "1.1.0"
+
+# GitHub repo checked for update notifications
 GITHUB_REPO = "vantahubkiarashpanel/Vantapanel"
 
 async def check_github_latest(force: bool = False) -> dict:
+    """Fetches the latest release tag from GitHub, caches in SQLite.
+    Only actually calls the API if force=True or no cached data exists."""
     conn = get_db()
     try:
         cur = conn.execute("SELECT latest_tag, latest_url, checked_at FROM github_cache WHERE id = 1")
@@ -105,6 +111,7 @@ async def check_github_latest(force: bool = False) -> dict:
     finally:
         conn.close()
 
+    # Create notification if a new version is detected
     if new_tag and new_tag != cached_tag and cached_tag:
         await create_notification(
             type="update",
@@ -115,14 +122,19 @@ async def check_github_latest(force: bool = False) -> dict:
 
     return {"tag": new_tag, "url": new_url, "checked_at": now}
 
+
 async def github_check_loop():
-    await asyncio.sleep(10)
+    """Background task: check GitHub every 60 seconds for new releases."""
+    await asyncio.sleep(10)  # initial delay
     while True:
         try:
             await check_github_latest(force=True)
         except Exception as e:
             logger.warning(f"GitHub periodic check error: {e}")
         await asyncio.sleep(60)
+
+
+# ── Notifications ────────────────────────────────────────────────────────
 
 async def create_notification(type: str, title: str, message: str, link: str | None = None):
     conn = get_db()
@@ -158,6 +170,15 @@ async def get_notifications(limit: int = 50) -> list:
         conn.close()
 
 def _get_or_create_secret() -> str:
+    """Returns a stable secret key across restarts.
+
+    Previously this fell back to secrets.token_urlsafe(32) on every process
+    start when SECRET_KEY wasn't set, which changed the key each restart.
+    Since password hashes are salted with this secret, that made the stored
+    admin password hash (and every changed password) unverifiable after any
+    restart, effectively locking everyone out. We now persist a generated
+    secret to a local file so it stays constant across restarts.
+    """
     env_secret = os.environ.get("SECRET_KEY")
     if env_secret:
         return env_secret
@@ -211,9 +232,13 @@ notified_uids = set()
 SESSION_COOKIE = "ren_session"
 SESSION_TTL = 60 * 60 * 24 * 7
 UNLIMITED_QUOTA_BYTES = 53687091200000
+# پورت همیشه ثابت روی 443 است — دیگه قابل تغییر توسط کاربر نیست
 DEFAULT_PORT = 443
 MIN_PORT, MAX_PORT = 1, 65535
 
+# نوع پروتکل (auth scheme) و ترابرد به‌صورت دو بُعد جدا از هم هستن؛ کاربر برای هر
+# کانفیگ هرکدوم رو مستقل از اون یکی انتخاب می‌کنه (مثلاً Trojan + XHTTP stream-up
+# یا VLESS + WebSocket و ...). مقدار ذخیره‌شده‌ی نهایی همیشه "{auth}-{transport}"ه.
 AUTH_TYPES = ("vless", "trojan")
 DEFAULT_AUTH = "vless"
 
@@ -224,29 +249,44 @@ PROTOCOLS = tuple(f"{a}-{t}" for a in AUTH_TYPES for t in TRANSPORTS)
 DEFAULT_PROTOCOL = f"{DEFAULT_AUTH}-{DEFAULT_TRANSPORT}"
 
 def split_protocol(protocol: str) -> tuple[str, str]:
+    """مقدار ذخیره‌شده‌ی protocol ("auth-transport") رو به دو بخش auth/transport می‌شکونه."""
     protocol = normalize_protocol(protocol)
     auth, transport = protocol.split("-", 1)
     return auth, transport
 
 def normalize_protocol(value: str | None) -> str:
+    """قدیم‌ترها مقدار protocol فقط ترابرد بود (مثلاً 'xhttp-packet-up' بدون
+    پیشوند auth) چون auth همیشه vless بود. این تابع مقادیر قدیمی رو به فرمت
+    جدید 'auth-transport' تبدیل می‌کنه تا کانفیگ‌های قبلی خراب نشن."""
     value = (value or "").strip().lower()
     if value in PROTOCOLS:
         return value
-    if value in TRANSPORTS:
+    if value in TRANSPORTS:  # legacy value با auth ضمنی vless
         return f"vless-{value}"
     return DEFAULT_PROTOCOL
 
+# Fingerprint (uTLS) های قابل انتخاب برای هر کانفیگ — مستقل برای هر پروتکل انتخاب می‌شه
 FINGERPRINTS = ("chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random", "randomized")
 DEFAULT_FINGERPRINT = "chrome"
 
+# لیست بسته‌ی ALPNهای قابل‌انتخاب (دیگه فیلد آزاد نیست) — مستقل برای هر پروتکل انتخاب می‌شه
 ALPN_OPTIONS = ("h3", "h2", "http/1.1", "h3,h2,http/1.1", "h3,h2", "h2,http/1.1")
 
+# پیش‌فرض ALPN بر اساس نوع ترابرد، وقتی کاربر مقدار انتخاب نکرده (auth روی این تاثیری نداره)
 DEFAULT_ALPN_BY_PROTOCOL = {}
 for _auth in AUTH_TYPES:
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-ws"] = "http/1.1"
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-xhttp-packet-up"] = "h2,http/1.1"
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-xhttp-stream-up"] = "h2,http/1.1"
 del _auth
+
+# ═══════════════════ ساختار «variants» — هر لینک می‌تونه هم‌زمان هم VLESS هم Trojan ═══════════════════
+# هر لینک به‌جای یک protocol واحد، یک variant مستقل برای هر auth type داره:
+#   link["variants"] = {
+#       "vless":  {"enabled": bool, "transport": ..., "fingerprint": ..., "alpn": ...},
+#       "trojan": {"enabled": bool, "transport": ..., "fingerprint": ..., "alpn": ...},
+#   }
+# حداقل یکی از دو تا باید enabled باشه.
 
 def default_variants() -> dict:
     return {
@@ -271,10 +311,11 @@ def sanitize_variants(variants: dict | None) -> dict:
     variants = variants or {}
     result = {auth: sanitize_variant(variants.get(auth), auth) for auth in AUTH_TYPES}
     if not any(result[a]["enabled"] for a in AUTH_TYPES):
-        result["vless"]["enabled"] = True
+        result["vless"]["enabled"] = True  # حداقل یکی باید فعال بمونه
     return result
 
 def variants_from_legacy(protocol: str, fingerprint: str, alpn: str) -> dict:
+    """کانفیگ‌های قدیمی که فقط یک protocol/fingerprint/alpn ستونی داشتن رو به فرمت جدید تبدیل می‌کنه."""
     auth, transport = split_protocol(protocol)
     variants = default_variants()
     for a in AUTH_TYPES:
@@ -287,6 +328,7 @@ def variants_from_legacy(protocol: str, fingerprint: str, alpn: str) -> dict:
     return variants
 
 def variants_to_legacy(variants: dict) -> tuple[str, str, str]:
+    """برای پرشدن ستون‌های قدیمی protocol/fingerprint/alpn (صرفاً برای سازگاری با ابزارهای بیرونی)."""
     for auth in AUTH_TYPES:
         v = (variants or {}).get(auth, {})
         if v.get("enabled"):
@@ -294,6 +336,9 @@ def variants_to_legacy(variants: dict) -> tuple[str, str, str]:
     return DEFAULT_PROTOCOL, DEFAULT_FINGERPRINT, ""
 
 def variants_from_body(body: dict, base: dict | None = None) -> dict:
+    """بدنه‌ی JSON درخواست (فیلدهای vless_enabled/vless_transport/... و trojan_*) رو
+    به ساختار variants تبدیل می‌کنه. base مقادیر پیش‌فرض/موجود رو برای فیلدهایی که
+    توی body نیومدن فراهم می‌کنه (برای PATCH جزئی)."""
     base = base or default_variants()
     result = {}
     for auth in AUTH_TYPES:
@@ -310,6 +355,10 @@ def variants_from_body(body: dict, base: dict | None = None) -> dict:
     return sanitize_variants(result)
 
 DB_FILE = "/data/panel.db" if os.path.isdir("/data") else "panel.db"
+if os.path.isdir("/data"):
+    logger.warning(f"[STARTUP] Persistent volume detected at /data -> using {DB_FILE} (data survives restarts/deploys)")
+else:
+    logger.warning(f"[STARTUP] NO persistent volume found at /data -> using EPHEMERAL {DB_FILE} (ALL links/data will be LOST on next restart/deploy!)")
 DB_LOCK = asyncio.Lock()
 bot = None
 bot_polling_task: asyncio.Task | None = None
@@ -508,6 +557,8 @@ def build_main_keyboard():
     )
     return kb
 
+# ── SQLite Database ──────────────────────────────────────────────────────
+
 def get_db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -565,6 +616,7 @@ def init_db():
         );
     """)
     conn.commit()
+    # Migrate older DBs created before protocol/fingerprint/alpn/port existed
     existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(links)").fetchall()}
     for col, ddl in (
         ("protocol", "ALTER TABLE links ADD COLUMN protocol TEXT DEFAULT 'vless-ws'"),
@@ -576,6 +628,7 @@ def init_db():
         if col not in existing_cols:
             conn.execute(ddl)
     conn.commit()
+    # Ensure default auth row
     cur = conn.execute("SELECT password_hash FROM auth WHERE id = 1")
     row = cur.fetchone()
     if row is None:
@@ -594,10 +647,12 @@ def migrate_json_to_sqlite():
     try:
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
+        # Migrate auth
         pw = data.get("auth_hash")
         if pw:
             conn.execute("INSERT OR REPLACE INTO auth (id, password_hash) VALUES (1, ?)", (pw,))
             AUTH["password_hash"] = pw
+        # Migrate links
         links = data.get("links", {})
         for uid, link in links.items():
             variants = variants_from_legacy(link.get("protocol", DEFAULT_PROTOCOL), link.get("fingerprint", DEFAULT_FINGERPRINT), link.get("alpn", ""))
@@ -612,17 +667,20 @@ def migrate_json_to_sqlite():
                   json.dumps(variants)))
             LINKS[uid] = dict(link)
             LINKS[uid]["variants"] = variants
+        # Migrate addresses
         addresses = data.get("custom_addresses", [])
         CUSTOM_ADDRESSES.clear()
         for addr in addresses:
             conn.execute("INSERT OR IGNORE INTO custom_addresses (address) VALUES (?)", (addr,))
             CUSTOM_ADDRESSES.append(addr)
+        # Migrate settings
         for key in ("telegram_token", "telegram_admin_id", "bot_lang"):
             val = data.get(key)
             if val:
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(val)))
                 CONFIG[key] = val
         conn.commit()
+        # Backup and remove old JSON
         os.rename(json_file, json_file + ".bak")
         logger.info(f"Migrated from {json_file} to SQLite database.")
     except Exception as e:
@@ -634,7 +692,9 @@ async def save_db():
     conn = get_db()
     try:
         async with DB_LOCK:
+            # Save auth
             conn.execute("INSERT OR REPLACE INTO auth (id, password_hash) VALUES (1, ?)", (AUTH["password_hash"],))
+            # Save links
             async with LINKS_LOCK:
                 for uid, link in list(LINKS.items()):
                     variants = sanitize_variants(link.get("variants"))
@@ -647,10 +707,12 @@ async def save_db():
                           1 if link.get("active", True) else 0, link.get("expires_at"),
                           legacy_protocol, legacy_fp, legacy_alpn, link.get("port", DEFAULT_PORT),
                           json.dumps(variants)))
+            # Save addresses
             async with CUSTOM_ADDRESSES_LOCK:
                 conn.execute("DELETE FROM custom_addresses")
                 for addr in CUSTOM_ADDRESSES:
                     conn.execute("INSERT INTO custom_addresses (address) VALUES (?)", (addr,))
+            # Save settings
             for key in ("telegram_token", "telegram_admin_id", "bot_lang", "railway_token", "notify_connections"):
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, CONFIG.get(key, "")))
             conn.commit()
@@ -663,10 +725,12 @@ def load_db():
     global CUSTOM_ADDRESSES, LINKS
     conn = get_db()
     try:
+        # Load auth
         cur = conn.execute("SELECT password_hash FROM auth WHERE id = 1")
         row = cur.fetchone()
         if row:
             AUTH["password_hash"] = row["password_hash"]
+        # Load links
         LINKS.clear()
         cur = conn.execute("SELECT * FROM links")
         for row in cur.fetchall():
@@ -690,15 +754,19 @@ def load_db():
                 "variants": variants,
                 "port": row["port"] if row["port"] else DEFAULT_PORT,
             }
+        # Load addresses
         CUSTOM_ADDRESSES.clear()
         cur = conn.execute("SELECT address FROM custom_addresses")
         rows = cur.fetchall()
         if rows:
             CUSTOM_ADDRESSES.extend(row["address"] for row in rows)
+        # پاک‌سازی یک‌بارمصرف: آدرس پیش‌فرض قدیمی رو دیگه نمی‌خوایم، حتی اگه از قبل
+        # تو دیتابیس ذخیره شده باشه.
         if "www.speedtest.net" in CUSTOM_ADDRESSES:
             CUSTOM_ADDRESSES.remove("www.speedtest.net")
             conn.execute("DELETE FROM custom_addresses WHERE address = ?", ("www.speedtest.net",))
             conn.commit()
+        # Load settings
         cur = conn.execute("SELECT key, value FROM settings")
         for row in cur.fetchall():
             CONFIG[row["key"]] = row["value"]
@@ -711,6 +779,7 @@ def hash_password(pw: str) -> str:
     return hashlib.sha256(f"{pw}{CONFIG['secret']}".encode()).hexdigest()
 
 AUTH = {"password_hash": hash_password("admin")}
+
 
 async def create_session() -> str:
     token = secrets.token_urlsafe(32)
@@ -809,6 +878,15 @@ def generate_vless_link(
     fingerprint: str | None = None,
     alpn: str | None = None,
 ) -> str:
+    """می‌سازد share-link متناسب با auth (vless/trojan) و ترابرد انتخاب‌شده
+    (ws یا یکی از دو مد XHTTP: packet-up / stream-up). fingerprint/alpn در
+    صورت ندادن، از پیش‌فرض‌های خودِ پروتکل استفاده می‌کنن. پورت همیشه 443 است
+    و پارامتر port دیگه در نظر گرفته نمی‌شه.
+
+    نکته‌ی مهم: برای هر دو auth، همون uid مخفیِ توی مسیر URL (/ws/{uid} یا
+    /xhttp/{mode}/{uid}) واقعاً احراز هویت می‌کنه، نه UUID داخل هدر VLESS یا
+    پسورد داخل هدر Trojan (که هیچ‌کدوم سمت سرور چک نمی‌شن) — پس برای Trojan هم
+    از همون uid به‌عنوان password توی لینک استفاده می‌کنیم."""
     domain = get_domain()
     addr = address if address else domain
 
@@ -823,13 +901,15 @@ def generate_vless_link(
     if alpn_val not in ALPN_OPTIONS:
         alpn_val = DEFAULT_ALPN_BY_PROTOCOL.get(protocol, "http/1.1")
 
+    # پورت ثابت و همیشه 443 — هر مقدار ورودی نادیده گرفته می‌شه
     use_port = DEFAULT_PORT
 
     if transport == "ws":
         path = f"/ws/{auth}/{uuid}?ed=2048"
         base_params = {"security": "tls", "type": "ws", "host": domain, "path": path, "sni": domain, "fp": fp, "alpn": alpn_val}
     else:
-        mode = transport.replace("xhttp-", "")
+        # xhttp-packet-up / xhttp-stream-up
+        mode = transport.replace("xhttp-", "")  # packet-up | stream-up
         path = f"/xhttp/{auth}/{mode}/{uuid}"
         base_params = {"security": "tls", "type": "xhttp", "mode": mode, "host": domain, "path": path, "sni": domain, "fp": fp, "alpn": alpn_val}
 
@@ -837,13 +917,18 @@ def generate_vless_link(
         params = {"encryption": "none", **base_params}
         scheme = "vless"
     else:
+        # trojan:// user-info بخش، password هست نه uuid؛ چون سمت سرور چک نمی‌شه از
+        # همون uid استفاده می‌کنیم تا برای کاربر هم مشخص و یکتا بمونه.
         params = base_params
         scheme = "trojan"
 
     query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
     return f"{scheme}://{uuid}@{addr}:{use_port}?{query}#{quote(remark)}"
 
+
 def link_for_variant(link: dict, uid: str, auth: str, address: str = None) -> str | None:
+    """اگه variant مربوط به این auth (vless/trojan) روی این لینک فعال باشه، share-link
+    مربوطه رو می‌سازه؛ وگرنه None برمی‌گردونه."""
     variant = sanitize_variants(link.get("variants")).get(auth)
     if not variant or not variant.get("enabled"):
         return None
@@ -858,6 +943,7 @@ def link_for_variant(link: dict, uid: str, auth: str, address: str = None) -> st
     )
 
 def links_for_all_variants(link: dict, uid: str, address: str = None) -> list[str]:
+    """برای هر auth فعال روی این لینک، یک share-link می‌سازه (ممکنه ۱ یا ۲ تا خروجی بده)."""
     out = []
     for auth in AUTH_TYPES:
         share_link = link_for_variant(link, uid, auth, address=address)
@@ -921,6 +1007,11 @@ async def find_uid_by_label(label: str) -> str | None:
 _UUID_RE = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
 
 def migrate_legacy_uuids():
+    """One-time migration: older versions of this panel used the link's label
+    as its VLESS uuid (e.g. 'Default', 'Ali'). Modern clients (Hiddify, Clash
+    Meta, and other sing-box/Xray-based apps) reject non-UUID ids outright.
+    This rewrites any such legacy link to use a real UUID, keeping its label,
+    quota, usage, and expiry intact."""
     conn = get_db()
     try:
         changed = False
@@ -1152,6 +1243,8 @@ def _notify_connections_enabled() -> bool:
     return str(CONFIG.get("notify_connections", "0")) in ("1", "true", "True")
 
 async def _log_connection_event(event: str, label: str, uid: str, ip: str, extra: str = ""):
+    """Logs every client connect/disconnect and, if enabled in Settings,
+    forwards the same event to the admin via Telegram."""
     verb = "Connected" if event == "connect" else "Disconnected"
     suffix = f" - {extra}" if extra else ""
     logger.info(f"{verb}: link='{label}' ({uid}) from {ip}{suffix}")
@@ -1406,6 +1499,9 @@ async def health():
 
 @app.get("/api/ping-check")
 async def ping_check(host: str, port: int = 443):
+    """Measures real TCP connect latency to a config's host from the panel's
+    own server/network (not the visitor's browser), so results reflect the
+    server's actual reachability instead of being limited by browser CORS."""
     if port < 1 or port > 65535:
         return {"host": host, "port": port, "ms": None, "reachable": False}
     start = time.time()
@@ -1496,6 +1592,9 @@ async def get_settings(_=Depends(require_auth)):
 @app.post("/api/settings")
 async def update_settings(request: Request, _=Depends(require_auth)):
     body = await request.json()
+    # Only touch fields the caller actually sent, so saving from one settings
+    # form (e.g. just the Telegram fields) doesn't wipe out fields that
+    # belong to another form (e.g. the Railway token).
     if "telegram_token" in body:
         CONFIG["telegram_token"] = (body.get("telegram_token") or "").strip()
     if "telegram_admin_id" in body:
@@ -1507,6 +1606,8 @@ async def update_settings(request: Request, _=Depends(require_auth)):
     await save_db()
     await restart_telegram_bot()
     return {"ok": True}
+
+# ── Railway / Permanent Database ──────────────────────────────────────────
 
 RAILWAY_API_URL = "https://backboard.railway.com/graphql/v2"
 
@@ -1537,6 +1638,7 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
     projects = []
     seen_ids = set()
 
+    # Personal-account-scoped projects (not inside any workspace)
     personal_data = await _railway_graphql(token, """
         query {
             projects {
@@ -1550,6 +1652,8 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
             seen_ids.add(node["id"])
             projects.append({"id": node["id"], "name": node.get("name", "Unnamed")})
 
+    # Most Railway accounts now keep their projects inside a workspace, so we
+    # also need to enumerate workspaces and fetch each one's projects.
     try:
         ws_data = await _railway_graphql(token, """
             query {
@@ -1558,6 +1662,8 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
         """)
         workspaces = (ws_data.get("me") or {}).get("workspaces") or []
     except HTTPException:
+        # A workspace- or project-scoped token can't call `me`; that's fine,
+        # we just skip workspace enumeration and keep whatever we already have.
         workspaces = []
 
     for ws in workspaces:
@@ -1583,6 +1689,16 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
     return {"projects": projects}
 
 async def _railway_resolve_service(token: str, project_id: str) -> dict:
+    """Figures out which service in the project the volume should attach to.
+
+    Railway limits each service to a single volume, and there's no reliable
+    way to guess which of a project's services is "the panel" without extra
+    input from the user - except that when this app is itself deployed on
+    Railway, Railway automatically injects RAILWAY_SERVICE_ID into its own
+    environment. We use that for a fully automatic match, and fall back to
+    "only one service in the project" when it's not available or doesn't
+    belong to this project.
+    """
     data = await _railway_graphql(token, """
         query ($id: String!) {
             project(id: $id) {
@@ -1719,6 +1835,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
             pass
 
     variants = variants_from_body(body)
+    # پورت همیشه 443 است؛ هر مقدار دیگه‌ای که فرانت بفرسته نادیده گرفته می‌شه
     port = DEFAULT_PORT
 
     uid = str(uuid.uuid4())
@@ -1791,6 +1908,7 @@ async def toggle_link(uid: str, request: Request, _=Depends(require_auth)):
                         "trojan_enabled", "trojan_transport", "trojan_fingerprint", "trojan_alpn")
         if any(k in body for k in variant_keys):
             LINKS[uid]["variants"] = variants_from_body(body, base=sanitize_variants(LINKS[uid].get("variants")))
+        # پورت همیشه 443 است — دیگه از ورودی کاربر خونده نمی‌شه
         LINKS[uid]["port"] = DEFAULT_PORT
         if "days_valid" in body:
             try:
@@ -1850,6 +1968,8 @@ async def delete_address(index: int, _=Depends(require_auth)):
     await save_db()
     return {"ok": True, "addresses": list(CUSTOM_ADDRESSES)}
 
+# فایل‌های آماده‌ی IP که کنار main.py قرار می‌گیرن و با یک کلیک، همه‌شون یکجا
+# (بدون رفت‌وبرگشت جدا برای هر آی‌پی) به لیست Clean IP اضافه می‌شن.
 IP_IMPORT_FILES = {
     "railway": "railway_ips.txt",
 }
@@ -1869,6 +1989,8 @@ def _parse_ip_file(path: str) -> list[str]:
 
 @app.post("/api/addresses/import/{source}")
 async def import_addresses(source: str, _=Depends(require_auth)):
+    """همه‌ی آی‌پی‌های داخل railway_ips.txt رو یکجا (بدون تاخیر
+    برای هرکدوم جدا) به لیست Clean IP اضافه می‌کنه."""
     filename = IP_IMPORT_FILES.get(source)
     if not filename:
         raise HTTPException(status_code=404, detail="unknown import source")
@@ -1886,6 +2008,8 @@ async def import_addresses(source: str, _=Depends(require_auth)):
                 added += 1
     await save_db()
     return {"ok": True, "added": added, "total_in_file": len(ips), "addresses": list(CUSTOM_ADDRESSES)}
+
+# ── Notifications API ────────────────────────────────────────────────────
 
 @app.get("/api/notifications")
 async def api_get_notifications(_=Depends(require_auth)):
@@ -1977,6 +2101,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         expiry_str = f"{days}d {hours}h"
         expiry_days = days
 
+    # Parse expiry date string for display
     expiry_date_str = ""
     if expires_at_str:
         exp_dt = parse_expires_at(expires_at_str)
@@ -1987,12 +2112,14 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     for addr in addresses:
         configs.extend(links_for_all_variants(link, uid, address=addr))
 
+    # Sub URL for QR
     sub_url = f"https://{get_domain()}/sub/{uid}"
     configs_json = json.dumps(configs)
 
     is_active = link["active"]
     status_text = "Active" if is_active else "Inactive"
     
+    # Color based on usage percentage
     if pct >= 90:
         ring_color1 = "#f87171"
         ring_color2 = "#ef4444"
@@ -2024,6 +2151,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         html,body{{height:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text)}}
         body{{padding:0;display:flex;flex-direction:column;align-items:center;min-height:100vh;overflow-x:hidden}}
 
+        /* Animated background */
         .bg-glow{{position:fixed;inset:0;z-index:0;pointer-events:none;
             background:radial-gradient(ellipse 60% 40% at 50% -5%,rgba(255,215,0,0.08),transparent 60%),
                        radial-gradient(ellipse 40% 30% at 80% 80%,rgba(255,215,0,0.05),transparent 50%);}}
@@ -2031,6 +2159,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             background-image:linear-gradient(rgba(255,215,0,0.03) 1px,transparent 1px),
                              linear-gradient(90deg,rgba(255,215,0,0.03) 1px,transparent 1px);
             background-size:48px 48px;}}
+        /* Shooting stars */
         .shooting-stars{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
         .shooting-stars .star{{position:absolute;width:110px;height:1px;
             background:linear-gradient(90deg,transparent,rgba(255,215,0,0.55));
@@ -2054,6 +2183,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         @media (prefers-reduced-motion: reduce){{
             .shooting-stars{{display:none}}
         }}
+        /* Starfield */
         .starfield{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
         .starfield .s{{position:absolute;border-radius:50%;background:#fff;
             animation-name:twinkle;animation-timing-function:ease-in-out;animation-iteration-count:infinite}}
@@ -2062,8 +2192,10 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             .starfield .s{{animation:none;opacity:.4}}
         }}
 
+
         .container{{width:100%;max-width:420px;padding:20px 16px 40px;position:relative;z-index:1}}
 
+        /* Header */
         .header{{text-align:center;padding:24px 0 20px}}
         .header-logo{{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}}
         .header-title{{font-size:22px;font-weight:900;letter-spacing:3px;
@@ -2071,6 +2203,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             -webkit-background-clip:text;-webkit-text-fill-color:transparent}}
         .header-sub{{font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase}}
 
+        /* Usage ring card */
         .ring-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:28px 24px;margin-bottom:14px;text-align:center;
             box-shadow:0 4px 24px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,215,0,0.08)}}
@@ -2100,6 +2233,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .info-box-val.gold{{color:var(--gold)}}
         .info-box-sub{{font-size:10px;color:var(--text3);margin-top:1px}}
 
+        /* QR card */
         .qr-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:24px;margin-bottom:14px;text-align:center;
             box-shadow:0 4px 24px rgba(0,0,0,0.4)}}
@@ -2118,6 +2252,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             box-shadow:0 0 20px rgba(255,215,0,0.25);transition:all .2s}}
         .copy-sub-btn:hover{{filter:brightness(1.1);box-shadow:0 0 30px rgba(255,215,0,0.4)}}
 
+        /* Platform chips */
         .section-label{{font-size:9px;font-weight:800;letter-spacing:2px;color:var(--text3);
             text-transform:uppercase;margin:20px 0 10px}}
         .platform-chips{{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}}
@@ -2126,6 +2261,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}}
         .chip:hover,.chip.active{{background:var(--gold-dim);border-color:var(--border2);color:var(--gold)}}
 
+        /* App cards */
         .apps-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}}
         .app-card{{background:var(--surface2);border:1px solid var(--border);border-radius:14px;
             padding:14px;cursor:pointer;transition:all .2s;text-decoration:none;display:block}}
@@ -2136,6 +2272,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .app-name{{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}}
         .app-action{{font-size:10.5px;color:var(--text3)}}
 
+        /* Config list */
         .configs-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:18px;margin-bottom:14px}}
         .configs-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}}
@@ -2162,6 +2299,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             cursor:pointer;transition:all .2s;font-family:inherit}}
         .btn-qr:hover{{background:rgba(167,139,250,0.15)}}
 
+        /* Ping all btn */
         .ping-btn{{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(74,222,128,0.2);
             background:rgba(74,222,128,0.08);color:var(--green);font-size:14px;font-weight:700;
             cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
@@ -2169,6 +2307,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .ping-btn:hover{{background:rgba(74,222,128,0.15);box-shadow:0 0 20px rgba(74,222,128,0.1)}}
         .ping-btn:disabled{{opacity:0.6;cursor:wait}}
 
+        /* QR modal */
         .mo{{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;
             align-items:center;justify-content:center;backdrop-filter:blur(8px)}}
         .mo.show{{display:flex}}
@@ -2181,6 +2320,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}}
         .mo-title{{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:4px}}
 
+        /* Toast */
         .toast{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);
             background:var(--bg2);color:var(--gold);border:1px solid var(--border2);
             border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;
@@ -2188,11 +2328,13 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             box-shadow:var(--gold-glow)}}
         .toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
 
+        /* VANTA footer links */
         .footer-links{{display:flex;justify-content:center;gap:16px;padding:20px 0 10px}}
         .footer-link{{display:flex;align-items:center;gap:5px;color:var(--text3);
             font-size:11px;font-weight:600;text-decoration:none;transition:color .2s}}
         .footer-link:hover{{color:var(--gold)}}
     
+/* ===== VANTA TOP NAVIGATION — refreshed layout ===== */
 :root{{--vanta-purple:#8b5cf6;--vanta-purple2:#a855f7;--vanta-purple-dim:rgba(139,92,246,.12);--vanta-purple-border:rgba(139,92,246,.28)}}
 .sidebar{{
   position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
@@ -2305,6 +2447,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 <div class="container">
 
+    <!-- Header -->
     <div class="header">
         <div class="header-logo">
             <svg width="28" height="24" viewBox="0 0 84 68" fill="none">
@@ -2319,6 +2462,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div class="header-sub">{link['label']} · Connection Status</div>
     </div>
 
+    <!-- Usage Ring Card -->
     <div class="ring-card">
         <div class="ring-wrap">
             <svg class="ring-svg" viewBox="0 0 160 160">
@@ -2355,6 +2499,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </div>
     </div>
 
+    <!-- QR Code Card -->
     <div class="qr-card">
         <div class="qr-label">Scan to Add</div>
         <div class="qr-wrap">
@@ -2368,6 +2513,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </button>
     </div>
 
+    <!-- Easy Import Section -->
     <div class="section-label">Easy Import</div>
     <div class="platform-chips" id="platform-chips">
         <div class="chip active" onclick="setPlatform('Android',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" style="vertical-align:-2px;margin-right:3px"><path d="M7.2 8h9.6a5 5 0 0 0-2-3.5l1-1.7a.35.35 0 0 0-.6-.35l-1.05 1.8A5.6 5.6 0 0 0 12 3.7c-.78 0-1.5.15-2.15.4L8.8 2.3a.35.35 0 0 0-.6.35l1 1.7A5 5 0 0 0 7.2 8zm2.55-1.6a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6zm4.5 0a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6zM6.5 9.2h11v8.3a1 1 0 0 1-1 1h-1.2v2.8a1.3 1.3 0 0 1-2.6 0v-2.8h-1.4v2.8a1.3 1.3 0 0 1-2.6 0v-2.8H7.5a1 1 0 0 1-1-1V9.2zM4 9.2a1.3 1.3 0 0 1 1.3 1.3v4.8a1.3 1.3 0 0 1-2.6 0v-4.8A1.3 1.3 0 0 1 4 9.2zm16 0a1.3 1.3 0 0 1 1.3 1.3v4.8a1.3 1.3 0 0 1-2.6 0v-4.8A1.3 1.3 0 0 1 20 9.2z"/></svg> Android</div>
@@ -2381,6 +2527,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
     <div id="apps-container" class="apps-grid"></div>
 
+    <!-- Configs -->
     <div class="configs-card">
         <div class="configs-header">
             <div class="configs-title">CONFIGS</div>
@@ -2390,6 +2537,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div id="config-list"></div>
     </div>
 
+    <!-- Footer links -->
     <div class="footer-links">
         <a href="https://t.me/Vantahub1792" target="_blank" class="footer-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
@@ -2410,6 +2558,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 </div>
 
+<!-- QR Modal -->
 <div class="mo" id="qr-modal" onclick="if(event.target===this)this.classList.remove('show')">
     <div class="mo-box">
         <button class="mo-close" onclick="document.getElementById('qr-modal').classList.remove('show')">✕</button>
@@ -2434,9 +2583,15 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }}
         sf.innerHTML=h;
     }})();
+    // Hiddify's own URL Scheme spec is: hiddify://import/<sublink>#<name>
+    // The #name fragment is what Hiddify shows as the profile name before
+    // it even fetches the sublink, and is used as a fallback if the
+    // content's own #profile-title header is missing or fails to parse.
     const hiddifyProfileName = encodeURIComponent("VANTA-{link['label']}");
     const hiddifyImportUrl = "hiddify://import/" + subUrl + "#" + hiddifyProfileName;
 
+    // Returns URL to the PNG icon for the given app name.
+    // Falls back to SVG initials if the PNG file does not exist.
     function appIcon(name, bg) {{
         const encoded = encodeURIComponent(name) + '.png';
         return '/client/' + encoded;
@@ -2509,6 +2664,10 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         `).join('');
     }}
 
+    // Tries to open an app via custom URL scheme. If the app doesn't take over
+    // the page within a short window (meaning it isn't installed or the scheme
+    // didn't register), tries a fallback scheme, and if that also fails,
+    // copies the subscription link so the user can paste it manually.
     function tryOpenScheme(url, onFail) {{
         let didHide = false;
         const onVisibilityChange = () => {{ if (document.hidden) didHide = true; }};
@@ -2565,6 +2724,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }});
     }}
 
+    // از خودِ رشته‌ی share-link (vless:// یا trojan://) نوع پروتکل/ترابرد/امنیت واقعی رو تشخیص می‌ده
     function configBadge(cfg) {{
         try {{
             const scheme = cfg.split('://')[0].toUpperCase();
@@ -2583,6 +2743,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }}
     }}
 
+    // Render configs
     function renderConfigs() {{
         const list = document.getElementById('config-list');
         document.getElementById('configs-count').textContent = configs.length + ' config' + (configs.length !== 1 ? 's' : '');
@@ -2628,11 +2789,15 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         a.click();
     }}
 
+    // Extracts host:port from a vless:// config link
     function parseHostPort(cfg) {{
         const m = cfg.match(/@([^:/?#]+):(\\d+)/);
         return m ? {{host: m[1], port: m[2]}} : null;
     }}
 
+    // Asks the panel's own server to test connectivity to a config's host,
+    // so the ping result reflects the server's real network path (and isn't
+    // limited/blocked by the visitor's browser CORS rules).
     async function pingHost(host, port) {{
         try {{
             const r = await fetch('/api/ping-check?host=' + encodeURIComponent(host) + '&port=' + encodeURIComponent(port));
@@ -2709,6 +2874,9 @@ def generate_subscription_content(link: dict, uid: str, addresses: list[str]) ->
 
 
 def generate_singbox_config(link: dict, uid: str, addresses: list[str]) -> str:
+    """Hiddify's engine is sing-box, so give it sing-box's own native
+    outbound JSON instead of the generic base64 vless list - removes any
+    dependency on Hiddify's vless://-URL parser entirely."""
     domain = get_domain()
 
     def _vless_outbound(tag: str, server: str, port: int = DEFAULT_PORT) -> dict:
@@ -2773,6 +2941,8 @@ def generate_clash_config(link: dict, uid: str, addresses: list[str]) -> str:
     variants = sanitize_variants(link.get("variants"))
 
     def _proxy_entry(auth: str, fp: str, name: str, server: str, port: int = DEFAULT_PORT) -> str:
+        # نکته: این خروجی کلش فقط ترابرد WS رو پوشش می‌ده؛ برای لینک‌های XHTTP از
+        # همون لینک share (vless:// یا trojan://) استفاده کن.
         cred_line = f'    uuid: {uid}\n' if auth == "vless" else f'    password: {uid}\n'
         return (
             f'  - name: "{name}"\n'
@@ -2789,6 +2959,7 @@ def generate_clash_config(link: dict, uid: str, addresses: list[str]) -> str:
             f'      Host: {domain}\n'
         )
 
+    # فقط auth هایی که فعالن و ترابردشون ws هست رو کلش می‌سازیم (محدودیت خودِ این export)
     active_auths = [a for a in AUTH_TYPES if variants[a]["enabled"] and variants[a]["transport"] == "ws"]
 
     proxies = []
@@ -2867,6 +3038,14 @@ async def subscription_endpoint(uid: str, request: Request):
     ua = request.headers.get("user-agent", "").lower()
     accept = request.headers.get("accept", "").lower()
 
+    # Many VPN client apps (Hiddify, NapsternetV, v2rayNG, sing-box front-ends,
+    # etc.) use HTTP libraries (Dio/OkHttp/etc.) that sometimes send a
+    # browser-like User-Agent and/or a permissive Accept header for
+    # compatibility with CDNs. If we only check for "mozilla"+"text/html" we
+    # misclassify these real clients as browsers and hand them the HTML
+    # landing page, which they can't parse ("unable to determine config
+    # format"). So known client fingerprints are checked FIRST and always
+    # win, regardless of what Accept/UA otherwise look like.
     known_client_markers = [
         "hiddify", "napsternet", "v2rayng", "v2box", "nekoray", "nekobox",
         "sing-box", "singbox", "streisand", "karing", "shadowrocket",
@@ -2945,6 +3124,9 @@ async def parse_vless_header(first_chunk: bytes):
     return command, address, port, first_chunk[pos:]
 
 async def parse_trojan_header(first_chunk: bytes):
+    """پارس هدر Trojan: hex(SHA224(password))[56] + CRLF + (CMD+ATYP+DST.ADDR+DST.PORT) + CRLF + payload.
+    مقدار hash پسورد اعتبارسنجی نمی‌شه چون احراز هویت واقعی همون uid مخفیِ توی
+    مسیر URL هست (دقیقاً مثل رفتار فعلیِ پنل برای VLESS)."""
     if len(first_chunk) < 56 + 2 + 1 + 1 + 2 + 2:
         raise ValueError("chunk too small")
     pos = 56
@@ -2978,11 +3160,14 @@ async def parse_trojan_header(first_chunk: bytes):
     return command, address, port, first_chunk[pos:]
 
 async def parse_proxy_header(auth: str, first_chunk: bytes):
+    """بر اساس auth گرفته‌شده از مسیر URL (vless یا trojan)، هدر رو با پارسر درست می‌خونه."""
     if auth == "trojan":
         return await parse_trojan_header(first_chunk)
     return await parse_vless_header(first_chunk)
 
 def response_prefix_for_protocol(auth: str) -> bytes:
+    """VLESS یک پاسخ ۲ بایتی (version=0 + no addons) قبل از اولین چانک دیتای برگشتی
+    می‌فرسته؛ Trojan چنین چیزی نداره و کاملاً raw pass-through هست."""
     return b"" if auth == "trojan" else b"\x00\x00"
 
 async def check_quota(uid: str, extra_bytes: int) -> bool:
@@ -3003,6 +3188,14 @@ async def add_usage(uid: str, n: int):
             LINKS[uid]["used_bytes"] += n
 
 async def check_and_add_usage(uid: str, extra_bytes: int) -> bool:
+    """Atomically check quota/expiry/active state and commit usage in a
+    single lock acquisition. Doing this as two separate locked calls
+    (check_quota then add_usage) let concurrent chunks - e.g. the upload
+    and download directions of the same connection racing each other -
+    both pass the check before either had committed, which could push a
+    link's used_bytes past its limit. It also doubled lock contention on
+    every single packet relayed, which was a real throughput bottleneck
+    under load. This does both in one step."""
     async with LINKS_LOCK:
         link = LINKS.get(uid)
         if link is None or not link["active"]:
@@ -3109,6 +3302,12 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
             await websocket.close(code=1008)
             return
 
+    # Xray/V2Ray clients that request early data (ws ?ed=... in the link)
+    # smuggle the first chunk of the VLESS request inside the
+    # Sec-WebSocket-Protocol header of the upgrade request itself, so it
+    # arrives in the same TCP packet as the handshake instead of a separate
+    # round trip after accept(). Echoing the header back keeps the handshake
+    # spec-compliant for clients that check it.
     early_data_hdr = websocket.headers.get("sec-websocket-protocol")
     early_data = b""
     if early_data_hdr:
@@ -3167,6 +3366,10 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(address, port), timeout=10.0
         )
+        # Disable Nagle's algorithm on the backend TCP socket. Without this,
+        # small proxied packets (the common case for interactive/streaming
+        # traffic) can sit buffered for up to ~40ms waiting to be coalesced,
+        # which is felt as real added latency/slowness on every config.
         try:
             backend_sock = writer.get_extra_info("socket")
             if backend_sock is not None:
@@ -3248,959 +3451,1870 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
                 extra = f"duration {duration_s}s, {_fmt_bytes(info.get('bytes', 0))}"
                 await _log_connection_event("disconnect", label, info.get("uuid", uuid), info.get("ip", client_ip), extra)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# XHTTP transport (packet-up / stream-up) — جدا شده به xhttp_transport.py
+# ══════════════════════════════════════════════════════════════════════════════
 from xhttp_transport import router as xhttp_router
 app.include_router(xhttp_router)
 
-# ============================================
-# پنل جدید با منوی بالای صفحه
-# ============================================
+# ── HTML Panel (Gold/Neon Theme) ─────────────────────────────────────────
 PANEL_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>VANTA Panel</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@300;400;500;600;700&family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#FFD700;--gold2:#FFC200;--gold3:#C8900A;--gold-dim:rgba(255,215,0,0.12);
+  --black:#060608;--black2:#0c0c10;--black3:#111118;
+  --surface:rgba(12,12,18,0.97);--surface2:rgba(20,20,28,0.9);--surface3:rgba(28,28,40,0.8);
+  --border:rgba(255,215,0,0.1);--border2:rgba(255,215,0,0.2);
+  --text:rgba(255,255,255,0.92);--text2:rgba(255,215,0,0.7);--text3:rgba(255,255,255,0.4);
+  --gold-glow:0 0 20px rgba(255,215,0,0.4);
+  --green:#4ade80;--green-dim:rgba(74,222,128,0.1);
+  --red:#f87171;--red-dim:rgba(248,113,113,0.1);
+  --yellow:#fbbf24;
+  --nav-w:64px;
 }
-:root {
-  --bg: #0a0a12;
-  --bg2: #11111d;
-  --bg3: #19192b;
-  --surface: rgba(17,17,29,0.95);
-  --border: rgba(139,92,246,0.15);
-  --text: #ffffff;
-  --text2: rgba(255,255,255,0.7);
-  --text3: rgba(255,255,255,0.4);
-  --purple: #8b5cf6;
-  --purple2: #a855f7;
-  --gold: #FFD700;
-  --green: #4ade80;
-  --red: #f87171;
+body.light-mode{
+  --black:#f0f4f8;--black2:#ffffff;--black3:#e8eef5;
+  --surface:rgba(255,255,255,0.97);--surface2:#ffffff;--surface3:#f8fafc;
+  --border:rgba(255,215,0,0.15);--border2:rgba(255,215,0,0.3);
+  --text:#0f172a;--text2:#0891b2;--text3:#64748b;
+  --gold-dim:rgba(255,215,0,0.1);--gold-dim2:rgba(255,215,0,0.06);
+  --gold-glow:0 4px 14px rgba(0,0,0,0.08);
 }
-body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
+html,body{height:100%;background:var(--black);transition:background .3s,color .3s}
+body{font-family:'Inter','Vazirmatn',sans-serif;color:var(--text);display:flex;min-height:100vh}
+body[dir="rtl"]{direction:rtl;text-align:right}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(255,215,0,0.2);border-radius:4px}
+.bg-fixed{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 50% at 50% -10%,rgba(255,215,0,0.07),transparent 60%),
+             radial-gradient(ellipse 40% 30% at 90% 90%,rgba(255,215,0,0.04),transparent 50%)}
+.light-mode .bg-fixed{background:none}
+.grid-fixed{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,215,0,0.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,215,0,0.04) 1px,transparent 1px);
+  background-size:56px 56px}
+.light-mode .grid-fixed{opacity:.4}
+
+/* Sidebar */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--nav-w);background:var(--surface);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;
+  transition:all .3s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(20px)}
+.sidebar::after{content:'';position:absolute;top:0;right:0;bottom:0;width:1px;
+  background:linear-gradient(180deg,transparent,rgba(255,215,0,0.4) 30%,rgba(255,215,0,0.4) 70%,transparent)}
+.light-mode .sidebar::after{display:none}
+.sb-brand{padding:16px 0;display:flex;flex-direction:column;align-items:center;gap:2px;
+  border-bottom:1px solid var(--border);flex-shrink:0}
+.sb-hat{filter:drop-shadow(0 0 10px rgba(255,215,0,.5));transition:filter .3s}
+.sb-hat:hover{filter:drop-shadow(0 0 18px rgba(255,215,0,.9))}
+.sb-title{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:rgba(255,215,0,.6);
+  text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.sb-nav{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:12px;
+  gap:2px;padding-left:8px;padding-right:8px}
+.nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  padding:10px 6px;border-radius:12px;color:var(--text3);cursor:pointer;
+  transition:all .2s cubic-bezier(.4,0,.2,1);border:1px solid transparent;position:relative;
+  overflow:hidden;text-decoration:none;background:none;width:100%;font-family:inherit}
+.nav-item::before{content:'';position:absolute;inset:0;border-radius:12px;
+  background:linear-gradient(135deg,var(--gold-dim),transparent);opacity:0;transition:opacity .2s}
+.nav-item:hover{color:var(--gold);border-color:rgba(255,215,0,.12)}
+.nav-item:hover::before{opacity:1}
+.nav-item.active{color:var(--gold);border-color:rgba(255,215,0,.22);background:var(--gold-dim);
+  box-shadow:0 0 16px rgba(255,215,0,.1),inset 0 1px 0 rgba(255,215,0,.12)}
+.nav-item.active::before{opacity:1}
+.nav-icon{width:18px;height:18px;flex-shrink:0;transition:transform .2s}
+.nav-item:hover .nav-icon,.nav-item.active .nav-icon{transform:scale(1.1)}
+.nav-label{font-size:8.5px;font-weight:600;letter-spacing:.05em;white-space:nowrap;overflow:hidden}
+.nav-badge{position:absolute;top:5px;right:5px;background:var(--gold);color:#000;font-size:8px;
+  font-weight:800;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;padding:0 3px}
+.sb-bottom{padding:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.lang-row{display:flex;gap:4px}
+.lang-btn{flex:1;padding:5px 2px;border:1px solid var(--border);border-radius:7px;background:none;
+  color:var(--text3);font-size:9px;font-weight:700;cursor:pointer;transition:all .2s;
+  font-family:inherit;letter-spacing:.05em}
+.lang-btn.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.lang-btn:hover:not(.active){border-color:rgba(255,215,0,.15);color:rgba(255,215,0,.5)}
+.logout-btn{display:flex;align-items:center;justify-content:center;padding:7px;
+  border:1px solid rgba(248,113,113,.15);border-radius:8px;background:rgba(248,113,113,.06);
+  color:rgba(248,113,113,.6);cursor:pointer;transition:all .2s;font-size:10px;gap:4px;
+  font-weight:600;font-family:inherit}
+.logout-btn:hover{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.3);color:var(--red)}
+.theme-toggle{background:transparent;border:1px solid var(--border);color:var(--text3);
+  border-radius:7px;padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s}
+.theme-toggle:hover{background:var(--surface3);color:var(--gold);border-color:var(--gold)}
+
+/* Social links in sidebar */
+.sb-social{display:flex;gap:4px;margin-bottom:2px}
+.sb-social-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:7px 4px;
+  border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;
+  transition:all .2s;text-decoration:none;background:none}
+.sb-social-btn:hover{border-color:var(--border2);color:var(--gold);background:var(--gold-dim);
+  box-shadow:0 0 10px rgba(255,215,0,0.1)}
+.sb-social-btn svg{width:14px;height:14px}
+.mob-social{display:none;gap:8px;align-items:center}
+.mob-social .sb-social-btn{padding:7px}
+.mob-social .sb-social-btn svg{width:16px;height:16px}
+
+/* Main */
+.main{margin-left:var(--nav-w);flex:1;padding:24px 28px 48px;min-height:100vh;position:relative;z-index:1}
+.page{display:none;animation:pgIn .35s ease}
+.page.active{display:block}
+@keyframes pgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.page-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.page-title{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--text);letter-spacing:.04em}
+.page-sub{font-size:11px;color:var(--text3);margin-top:3px;letter-spacing:.02em}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  padding:16px;position:relative;overflow:hidden;transition:all .25s;animation:cIn .5s ease both}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,215,0,0.4),transparent)}
+.light-mode .stat-card::before{display:none}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:var(--gold-glow)}
+@keyframes cIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.stat-label{font-size:9.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.stat-val{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.stat-unit{font-size:11px;font-weight:400;color:var(--text3)}
+.card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;
+  margin-bottom:10px;position:relative;overflow:hidden;transition:all .25s;animation:cIn .5s ease both}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,215,0,0.2),transparent)}
+.light-mode .card::before{display:none}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-title{font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.chart-container{height:170px;width:100%}
+.btn{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:7px 14px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:none;transition:all .2s;letter-spacing:.03em}
+.btn-gold{background:linear-gradient(135deg,#FFD700,#FFC200);color:#000;box-shadow:0 0 16px rgba(255,215,0,.25)}
+.btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 0 24px rgba(255,215,0,.4)}
+.btn-ghost{background:var(--surface3);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,.15)}
+.btn-sm{padding:4px 9px;font-size:10.5px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);padding:9px 11px;
+  text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface3)}
+.tbl td{padding:9px 11px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle}
+.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:9px;
+  font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.tag-vless{background:var(--gold-dim);color:var(--gold);border:1px solid var(--border)}
+.tag-port{background:rgba(167,139,250,.1);color:#a78bfa;border:1px solid rgba(167,139,250,.2)}
+.tag-on{background:var(--green-dim);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.tag-off{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.pill{display:flex;align-items:center;gap:7px;font-size:11px}
+.pill-used{color:var(--text);font-weight:600}
+.pill-bar{flex:1;height:4px;background:var(--border);border-radius:2px;min-width:40px}
+.pill-fill{height:100%;border-radius:2px;transition:width .4s}
+.pill-lim{color:var(--text3);font-size:10px}
+.toggle{width:32px;height:17px;border-radius:9px;background:var(--surface3);position:relative;
+  cursor:pointer;transition:all .28s;border:1px solid var(--border);flex-shrink:0}
+.toggle::after{content:'';position:absolute;width:11px;height:11px;border-radius:50%;
+  background:var(--text3);top:2px;left:2px;transition:all .28s cubic-bezier(.4,0,.2,1)}
+.toggle.on{background:var(--green);border-color:var(--green);box-shadow:0 0 10px rgba(74,222,128,.3)}
+.toggle.on::after{left:17px;background:#fff}
+.sys-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.sys-fill{height:100%;border-radius:3px;transition:width .4s}
+.sl-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.sl-k{color:var(--text3);font-size:11.5px}
+.sl-v{color:var(--text);font-weight:600;font-size:11.5px}
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+.fl{font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em}
+.fi,.fs{padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-family:inherit;
+  font-size:12.5px;outline:none;color:var(--text);background:var(--surface);transition:all .2s}
+.fi:focus,.fs:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,215,0,.08)}
+.fr{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.fr .fg{margin-bottom:0;flex:1;min-width:90px}
+.act-btn{font-family:inherit;font-size:9.5px;font-weight:700;border-radius:6px;padding:4px 8px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:3px;border:1px solid;transition:all .18s}
+.act-copy{background:var(--gold-dim);color:var(--gold);border-color:var(--border)}
+.act-sub{background:var(--green-dim);color:var(--green);border-color:rgba(74,222,128,.2)}
+.act-qr{background:rgba(167,139,250,.1);color:#a78bfa;border-color:rgba(167,139,250,.2)}
+.act-edit{background:rgba(251,191,36,.08);color:var(--yellow);border-color:rgba(251,191,36,.2)}
+.act-del{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,.18)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);
+  background:var(--surface);color:var(--gold);border:1px solid var(--border2);border-radius:10px;
+  padding:12px 20px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:999;
+  backdrop-filter:blur(24px);box-shadow:var(--gold-glow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;
+  align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.mo.show{display:flex}
+.mo-box{background:var(--surface2);border:1px solid var(--border2);border-radius:18px;padding:24px;
+  width:100%;max-width:460px;position:relative;box-shadow:var(--gold-glow);
+  transform:scale(.92);opacity:0;transition:all .38s cubic-bezier(.34,1.56,.64,1)}
+.mo.show .mo-box{transform:scale(1);opacity:1}
+.mo-title{font-family:'Cinzel',serif;font-size:14px;font-weight:700;margin-bottom:16px;
+  color:var(--gold);letter-spacing:.06em}
+.mo-close{position:absolute;top:14px;right:14px;background:var(--surface3);border:1px solid var(--border);
+  color:var(--text3);width:30px;height:30px;border-radius:7px;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;font-size:14px}
+.qr-box{text-align:center;padding:20px;background:var(--surface3);border-radius:12px;
+  border:1px solid var(--border);margin-top:12px}
+.qr-box img{max-width:200px;border-radius:8px;border:3px solid var(--border);box-shadow:var(--gold-glow)}
+.tb{display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:160px;position:relative}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3)}
+.search-wrap input{width:100%;padding:9px 12px 9px 34px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;
+  font-family:inherit;outline:none}
+.search-wrap input:focus{border-color:var(--gold)}
+.filter-chips{display:flex;gap:3px;padding:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
+.chip{padding:7px 12px;border-radius:6px;font-size:11.5px;font-weight:700;color:var(--text3);
+  cursor:pointer;border:none;background:none;transition:all .18s;font-family:inherit}
+.chip.active{background:var(--gold);color:#000}
+.m-cards{display:none;flex-direction:column;gap:12px}
+.m-card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--surface2)}
+.m-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.m-card-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.empty{text-align:center;padding:36px;color:var(--text3)}
+.mob-hd{display:none;position:fixed;top:0;left:0;right:0;background:var(--surface);
+  border-bottom:1px solid var(--border);z-index:90;align-items:center;justify-content:space-between;
+  backdrop-filter:blur(20px)}
+.mob-tl-group{display:flex;gap:10px;align-items:center;flex-direction:row}
+.logout-mob{display:none;color:var(--red) !important}
+.logout-mob:hover{background:var(--red-dim) !important;border-color:rgba(248,113,113,.3) !important}
+.alerts-box{background:rgba(248,113,113,.08);border:1px dashed rgba(248,113,113,.3);
+  border-radius:12px;padding:14px;margin-bottom:14px;display:none}
+.alerts-title{color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:8px;
+  display:flex;align-items:center;gap:6px}
+.alert-item{font-size:12px;margin-bottom:4px;color:var(--text);display:flex;justify-content:space-between}
+.live-logs-container{background:#000;border:1px solid var(--border);border-radius:8px;padding:12px;
+  font-family:monospace;font-size:11px;color:#FFD700;height:200px;overflow-y:auto;white-space:pre-wrap}
+.login-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:100vh;width:100%;overflow:hidden;background:radial-gradient(circle at 50% 15%,rgba(255,215,0,.08),transparent 34%),linear-gradient(145deg,#050505,#0b0b0d 52%,#030303)}
+.login-wrap:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(to bottom,#000,transparent 90%);pointer-events:none}
+.login-orb{position:absolute;border-radius:50%;filter:blur(1px);pointer-events:none}.login-orb-a{width:330px;height:330px;left:-170px;top:18%;background:radial-gradient(circle,rgba(255,215,0,.12),transparent 68%)}.login-orb-b{width:420px;height:420px;right:-220px;bottom:-140px;background:radial-gradient(circle,rgba(120,90,255,.10),transparent 68%)}
+.login-box{position:relative;width:calc(100% - 32px);max-width:430px;padding:34px 34px 26px;background:rgba(13,13,16,.88);border:1px solid rgba(255,215,0,.20);border-radius:26px;box-shadow:0 28px 90px rgba(0,0,0,.65),0 0 45px rgba(255,215,0,.055);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.login-topline{display:flex;gap:6px;margin-bottom:28px}.login-topline span{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.20)}.login-topline span:first-child{background:#FFD700;box-shadow:0 0 10px rgba(255,215,0,.5)}
+.login-logo{text-align:center;margin-bottom:24px}.login-mark{position:relative;width:70px;height:70px;margin:0 auto 15px;border:1px solid rgba(255,215,0,.35);border-radius:20px;display:grid;place-items:center;transform:rotate(45deg);background:linear-gradient(145deg,rgba(255,215,0,.13),rgba(255,255,255,.025));box-shadow:inset 0 0 24px rgba(255,215,0,.07),0 0 28px rgba(255,215,0,.06)}.login-mark-ring{position:absolute;inset:9px;border:1px solid rgba(255,215,0,.28);border-radius:13px}.login-mark-core{transform:rotate(-45deg);font-family:'Cinzel',serif;font-size:31px;font-weight:900;color:#FFD700;text-shadow:0 0 18px rgba(255,215,0,.45)}
+.login-kicker{font-size:9px;letter-spacing:4px;color:rgba(255,215,0,.68);font-weight:700;margin-bottom:5px}.login-title{font-family:'Cinzel',serif;font-size:30px;font-weight:900;color:#fff;letter-spacing:.18em}.login-sub{font-size:11px;color:var(--text3);margin-top:7px}
+.login-divider{display:flex;align-items:center;gap:10px;margin:22px 0 18px;color:rgba(255,255,255,.25);font-size:8px;letter-spacing:2px}.login-divider i{height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,215,0,.24),transparent)}
+.fg{margin-bottom:15px}.fl{display:block;margin-bottom:8px;font-size:9px;letter-spacing:1.8px;color:rgba(255,255,255,.50);font-weight:700}.login-input-wrap{position:relative;display:flex;align-items:center}.login-input-icon{position:absolute;left:14px;color:#FFD700;font-size:9px;opacity:.7}.fi{box-sizing:border-box;width:100%;height:48px;padding:0 70px 0 35px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.10);border-radius:13px;color:#fff;outline:none;font-family:inherit;font-size:13px;transition:.2s}.fi:focus{border-color:rgba(255,215,0,.48);box-shadow:0 0 0 4px rgba(255,215,0,.055),0 0 24px rgba(255,215,0,.05)}.fi::placeholder{color:rgba(255,255,255,.22)}
+.login-reveal{position:absolute;right:8px;height:34px;padding:0 9px;border:0;border-radius:8px;background:rgba(255,255,255,.055);color:rgba(255,255,255,.55);font-size:8px;font-weight:800;letter-spacing:1px;cursor:pointer}.login-reveal:hover{color:#FFD700;background:rgba(255,215,0,.08)}
+.login-submit{width:100%;height:49px;display:flex;align-items:center;justify-content:space-between;padding:0 17px;margin-top:8px;border-radius:13px;font-weight:800;letter-spacing:.7px}.login-submit b{font-size:20px;font-weight:400}
+.login-meta{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,.07);font-size:8px;letter-spacing:1.2px;color:rgba(255,255,255,.25)}.login-meta a{color:rgba(255,215,0,.65);text-decoration:none}.login-meta a:hover{color:#FFD700}
+/* Notification styles */
+.notif-item{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);transition:all .2s}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--surface3)}
+.notif-item.unseen{background:var(--gold-dim)}
+.notif-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.notif-icon.update{background:rgba(56,189,248,.12);color:#38bdf8}
+.notif-icon.quota{background:var(--red-dim);color:var(--red)}
+.notif-icon.expiry{background:rgba(251,191,36,.12);color:var(--yellow)}
+.notif-icon.info{background:rgba(74,222,128,.12);color:var(--green)}
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.notif-msg{font-size:11px;color:var(--text3);line-height:1.4}
+.notif-time{font-size:10px;color:var(--text3);margin-top:4px}
+.notif-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--gold);text-decoration:none;margin-top:4px}
+.notif-link:hover{text-decoration:underline}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:10px}
+
+/* Gold accent on progress fills */
+.pill-fill-gold{background:linear-gradient(90deg,var(--gold),var(--gold2))}
+
+@media(max-width:768px){
+  .mob-hd{display:flex;height:65px;padding:0 20px}
+  .mob-tl-group .lang-btn{font-size:13px;padding:7px 10px;border-radius:8px}
+  .theme-toggle{font-size:18px;padding:7px 10px;border-radius:8px}
+  .mob-hd span{font-size:22px !important}
+  .sidebar{transform:none !important;width:100% !important;height:78px;top:auto;bottom:0;
+    border-right:none;border-top:1px solid var(--border);flex-direction:row;padding:0;
+    background:var(--surface);box-shadow:0 -4px 20px rgba(0,0,0,.5)}
+  .light-mode .sidebar{box-shadow:0 -4px 20px rgba(0,0,0,.06)}
+  .sb-brand,.sb-bottom{display:none !important}
+  .sidebar .sb-social{display:none !important}
+  .mob-social{display:flex !important}
+  .sb-nav{flex-direction:row;width:100%;padding:0;align-items:center;justify-content:space-between;gap:0}
+  .nav-item{flex:1;padding:12px 0;border-radius:0}
+  .nav-icon{width:24px;height:24px;margin-bottom:5px}
+  .nav-label{font-size:10px;letter-spacing:0}
+  .nav-badge{top:6px;right:50%;transform:translateX(10px);min-width:18px;height:18px;font-size:10px}
+  .logout-mob{display:flex}
+  .main{margin-left:0;padding-top:85px;padding-left:18px;padding-right:18px;padding-bottom:100px}
+  .page-title{font-size:24px}
+  .page-sub{font-size:13px;margin-top:5px}
+  .btn{font-size:14px;padding:10px 18px}
+  .btn-sm{font-size:12px;padding:8px 14px}
+  .stats-row{grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+  .stat-card{padding:22px;border-radius:16px}
+  .stat-label{font-size:12px;margin-bottom:12px}
+  .stat-val{font-size:26px}
+  .stat-unit{font-size:14px}
+  .grid-2{grid-template-columns:1fr;gap:14px;margin-bottom:14px}
+  .card{padding:22px;border-radius:16px;margin-bottom:14px}
+  .card-title{font-size:16px;margin-bottom:16px}
+  .chart-container{height:220px;width:100%}
+  #cpu-v,#mem-v{font-size:22px !important}
+  .sl-k,.sl-v{font-size:14px;padding:14px 0}
+  .tbl-wrap{display:none}
+  .m-cards{display:flex}
+  .m-card{padding:18px;border-radius:14px}
+  .m-card-hd span{font-size:16px !important}
+  .pill-used{font-size:13px}
+  .pill-lim{font-size:12px}
+  .m-card-acts .act-btn{font-size:12px;padding:8px 14px;border-radius:8px}
+  .mo-box{padding:28px 24px;border-radius:20px}
+  .fi,.fs{font-size:16px;padding:12px 16px}
+  .fl{font-size:11px;margin-bottom:6px}
+}
+@media(max-width:460px){.stats-row{grid-template-columns:1fr;gap:14px}}
+
+/* ===== VANTA PANEL — PURPLE TOP CONTROL DECK ===== */
+:root{
+  --panel-purple:#8b5cf6;
+  --panel-purple2:#a855f7;
+  --panel-purple3:#c084fc;
+  --panel-purple-dim:rgba(139,92,246,.13);
+  --panel-purple-border:rgba(168,85,247,.30);
+  --panel-purple-glow:0 0 26px rgba(139,92,246,.18);
 }
 
-/* ===== منوی بالای صفحه ===== */
-.topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 70px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 32px;
-  z-index: 1000;
-  backdrop-filter: blur(12px);
+/* Desktop: turn the navigation into a new floating top panel */
+.sidebar{
+  position:fixed!important;
+  inset:0 0 auto 0!important;
+  width:100%!important;
+  height:82px!important;
+  min-height:82px!important;
+  padding:0 28px!important;
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  gap:24px!important;
+  background:linear-gradient(180deg,rgba(18,12,30,.97),rgba(10,8,18,.94))!important;
+  border:0!important;
+  border-bottom:1px solid rgba(168,85,247,.22)!important;
+  box-shadow:0 14px 40px rgba(0,0,0,.28),inset 0 -1px 0 rgba(168,85,247,.08)!important;
+  backdrop-filter:blur(24px)!important;
+  -webkit-backdrop-filter:blur(24px)!important;
 }
-.topbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 24px;
-  font-weight: 900;
-  color: var(--purple2);
-  text-decoration: none;
+.sidebar::before{
+  content:""!important;
+  position:absolute!important;
+  left:0!important;right:0!important;bottom:0!important;
+  height:2px!important;
+  background:linear-gradient(90deg,transparent,var(--panel-purple),var(--panel-purple3),var(--panel-purple),transparent)!important;
+  opacity:.75!important;
 }
-.topbar-brand span {
-  background: linear-gradient(135deg, var(--purple2), var(--gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.sidebar::after{display:none!important}
+
+.sb-brand{
+  width:150px!important;min-width:150px!important;
+  height:52px!important;padding:0 16px!important;margin:0!important;
+  border:1px solid var(--panel-purple-border)!important;
+  border-radius:16px!important;
+  background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(168,85,247,.06))!important;
+  box-shadow:var(--panel-purple-glow)!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
 }
-.topbar-nav {
-  display: flex;
-  gap: 4px;
+.sb-title{
+  font-family:'Inter','Vazirmatn',sans-serif!important;
+  font-size:24px!important;font-weight:900!important;
+  letter-spacing:.03em!important;color:#fff!important;
 }
-.topbar-nav button {
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  color: var(--text3);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 10px;
-  transition: all 0.2s;
-}
-.topbar-nav button:hover {
-  color: var(--text);
-  background: rgba(139,92,246,0.08);
-}
-.topbar-nav button.active {
-  color: #fff;
-  background: rgba(139,92,246,0.15);
-  box-shadow: 0 0 20px rgba(139,92,246,0.1);
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.topbar-actions .badge {
-  background: var(--purple2);
-  color: #fff;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.topbar-actions .logout {
-  padding: 8px 16px;
-  border: 1px solid rgba(248,113,113,0.2);
-  background: rgba(248,113,113,0.06);
-  color: var(--red);
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-.topbar-actions .logout:hover {
-  background: rgba(248,113,113,0.12);
+.sb-title::after{
+  content:""!important;display:inline-block!important;
+  width:7px!important;height:7px!important;border-radius:50%!important;
+  margin-left:7px!important;vertical-align:middle!important;
+  background:var(--panel-purple3)!important;
+  box-shadow:0 0 16px rgba(192,132,252,.95)!important;
 }
 
-/* ===== محتوای اصلی ===== */
-.main {
-  margin-top: 70px;
-  padding: 30px 35px;
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
+.sb-nav{
+  flex:1!important;min-width:0!important;
+  display:flex!important;flex-direction:row!important;
+  align-items:center!important;justify-content:flex-start!important;
+  gap:8px!important;padding:0!important;
+  overflow-x:auto!important;scrollbar-width:none!important;
 }
-.page {
-  display: none;
+.sb-nav::-webkit-scrollbar{display:none!important}
+
+.nav-item{
+  position:relative!important;
+  flex:0 0 auto!important;width:auto!important;min-width:112px!important;
+  height:48px!important;padding:0 16px!important;
+  display:flex!important;flex-direction:row!important;
+  align-items:center!important;justify-content:center!important;gap:9px!important;
+  border:1px solid transparent!important;border-radius:14px!important;
+  color:rgba(255,255,255,.62)!important;
+  background:rgba(255,255,255,.025)!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+  transition:transform .2s ease,background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease!important;
 }
-.page.active {
-  display: block;
-  animation: fadeIn 0.3s ease;
+.nav-item:hover{
+  transform:translateY(-1px)!important;
+  color:#fff!important;
+  background:rgba(139,92,246,.11)!important;
+  border-color:rgba(168,85,247,.24)!important;
+  box-shadow:0 8px 22px rgba(139,92,246,.10)!important;
 }
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.nav-item.active{
+  color:#fff!important;
+  background:linear-gradient(135deg,rgba(139,92,246,.28),rgba(168,85,247,.12))!important;
+  border-color:rgba(192,132,252,.42)!important;
+  box-shadow:0 8px 24px rgba(139,92,246,.18),inset 0 0 18px rgba(139,92,246,.08)!important;
+}
+.nav-item.active::after{
+  content:""!important;position:absolute!important;
+  left:18px!important;right:18px!important;bottom:-1px!important;
+  height:2px!important;border-radius:4px!important;
+  background:linear-gradient(90deg,var(--panel-purple),var(--panel-purple3))!important;
+  box-shadow:0 0 12px rgba(168,85,247,.8)!important;
+}
+.nav-icon{
+  width:18px!important;height:18px!important;
+  color:currentColor!important;flex:none!important;
+}
+.nav-label{
+  font-size:12px!important;font-weight:700!important;
+  letter-spacing:.02em!important;white-space:nowrap!important;
+}
+.nav-badge{
+  background:linear-gradient(135deg,var(--panel-purple),var(--panel-purple2))!important;
+  color:#fff!important;border:1px solid rgba(255,255,255,.18)!important;
+  box-shadow:0 0 12px rgba(139,92,246,.35)!important;
 }
 
-/* ===== استایل کارت‌ها ===== */
-.page-header {
-  margin-bottom: 25px;
+.sb-bottom{
+  display:flex!important;align-items:center!important;
+  gap:10px!important;margin-left:auto!important;
 }
-.page-title {
-  font-size: 26px;
-  font-weight: 800;
+.sb-bottom .top-actions{
+  display:flex!important;align-items:center!important;gap:8px!important;
+  margin:0!important;
 }
-.page-sub {
-  color: var(--text3);
-  font-size: 14px;
-  margin-top: 4px;
+.top-status{
+  height:42px!important;padding:0 12px!important;
+  border:1px solid rgba(168,85,247,.18)!important;
+  border-radius:12px!important;
+  background:rgba(139,92,246,.07)!important;
 }
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 25px;
+.top-status-dot{
+  background:var(--panel-purple3)!important;
+  box-shadow:0 0 10px rgba(192,132,252,.75)!important;
 }
-.stat-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
+.top-icon-btn,.top-user{
+  width:42px!important;height:42px!important;
+  border-radius:12px!important;
+  border:1px solid rgba(168,85,247,.20)!important;
+  background:rgba(139,92,246,.07)!important;
+  color:#fff!important;
 }
-.stat-label {
-  font-size: 11px;
-  color: var(--text3);
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+.top-icon-btn:hover,.top-user:hover{
+  background:rgba(139,92,246,.18)!important;
+  border-color:rgba(192,132,252,.45)!important;
 }
-.stat-val {
-  font-size: 28px;
-  font-weight: 800;
-  margin-top: 6px;
-}
-.stat-val .unit {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text3);
-}
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-}
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-.btn {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-purple {
-  background: var(--purple);
-  color: #fff;
-}
-.btn-purple:hover {
-  background: var(--purple2);
-  transform: scale(0.97);
-}
-.btn-ghost {
-  background: var(--bg3);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-.btn-danger {
-  background: rgba(248,113,113,0.1);
-  color: var(--red);
-  border: 1px solid rgba(248,113,113,0.15);
-}
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-.tbl {
-  width: 100%;
-  border-collapse: collapse;
-}
-.tbl th {
-  text-align: left;
-  font-size: 11px;
-  color: var(--text3);
-  padding: 10px 12px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border);
-}
-.tbl td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.tag {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.tag-on {
-  background: rgba(74,222,128,0.1);
-  color: var(--green);
-  border: 1px solid rgba(74,222,128,0.1);
-}
-.tag-off {
-  background: rgba(248,113,113,0.1);
-  color: var(--red);
-  border: 1px solid rgba(248,113,113,0.1);
-}
-.act-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text3);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-.act-btn:hover {
-  background: var(--bg3);
-  color: var(--text);
-}
-.act-edit {
-  border-color: rgba(139,92,246,0.2);
-  color: var(--purple);
-}
-.act-del {
-  border-color: rgba(248,113,113,0.15);
-  color: var(--red);
-}
-.toast {
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  padding: 12px 24px;
-  border-radius: 10px;
-  color: var(--purple2);
-  font-weight: 600;
-  opacity: 0;
-  transition: all 0.3s;
-  z-index: 999;
-}
-.toast.show {
-  opacity: 1;
-}
-.empty {
-  padding: 40px;
-  text-align: center;
-  color: var(--text3);
-}
-.toggle {
-  width: 38px;
-  height: 20px;
-  border-radius: 10px;
-  background: var(--bg3);
-  position: relative;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.toggle::after {
-  content: '';
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--text3);
-  top: 2px;
-  left: 2px;
-  transition: all 0.2s;
-}
-.toggle.on {
-  background: var(--green);
-  border-color: var(--green);
-}
-.toggle.on::after {
-  left: 20px;
-  background: #fff;
-}
-.pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.pill-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--bg3);
-  border-radius: 2px;
-}
-.pill-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.4s;
-}
-.fl {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text3);
-  display: block;
-  margin-bottom: 4px;
-}
-.fi {
-  width: 100%;
-  padding: 10px 14px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 14px;
-  outline: none;
-}
-.fi:focus {
-  border-color: var(--purple);
-}
-.fr {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.fg {
-  flex: 1;
-  min-width: 120px;
-}
-.mo {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 200;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-.mo.show {
-  display: flex;
-}
-.mo-box {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 28px;
-  max-width: 500px;
-  width: 90%;
-}
-.mo-title {
-  font-size: 20px;
-  font-weight: 800;
-  margin-bottom: 16px;
-}
-.mo-close {
-  float: right;
-  background: none;
-  border: none;
-  color: var(--text3);
-  font-size: 24px;
-  cursor: pointer;
+.legacy-controls{display:none!important}
+
+/* Content starts below the new top panel */
+.main{
+  margin-left:0!important;
+  padding-top:112px!important;
+  padding-left:30px!important;
+  padding-right:30px!important;
 }
 
-/* ===== رسپانسیو ===== */
-@media (max-width: 768px) {
-  .topbar {
-    padding: 0 16px;
-    height: 60px;
+/* Re-theme the panel controls without changing functionality */
+.btn-gold,.btn-gold:hover{
+  background:linear-gradient(135deg,var(--panel-purple),var(--panel-purple2))!important;
+  color:#fff!important;border-color:rgba(192,132,252,.45)!important;
+  box-shadow:0 8px 22px rgba(139,92,246,.18)!important;
+}
+.chip.active{
+  color:#fff!important;
+  background:var(--panel-purple-dim)!important;
+  border-color:var(--panel-purple-border)!important;
+}
+.page-title{
+  background:linear-gradient(135deg,#fff,var(--panel-purple3))!important;
+  -webkit-background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;
+}
+
+/* Mobile: keep the menu at the top and make it a compact horizontal control deck */
+@media(max-width:760px){
+  .sidebar{
+    inset:0 0 auto 0!important;
+    width:100%!important;height:70px!important;min-height:70px!important;
+    padding:0 10px!important;gap:8px!important;
+    border-bottom:1px solid rgba(168,85,247,.22)!important;
   }
-  .topbar-brand {
-    font-size: 18px;
+  .sb-brand{
+    width:86px!important;min-width:86px!important;height:46px!important;
+    padding:0 8px!important;border-radius:13px!important;
   }
-  .topbar-nav button {
-    padding: 6px 12px;
-    font-size: 12px;
+  .sb-title{font-size:19px!important}
+  .sb-nav{
+    gap:5px!important;overflow-x:auto!important;
+    justify-content:flex-start!important;
   }
-  .main {
-    padding: 20px 16px;
-    margin-top: 60px;
+  .nav-item{
+    min-width:78px!important;height:46px!important;
+    padding:0 9px!important;border-radius:12px!important;
+    gap:5px!important;
   }
-  .stats-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .grid-2 {
-    grid-template-columns: 1fr;
-  }
-  .stat-val {
-    font-size: 22px;
+  .nav-icon{width:16px!important;height:16px!important}
+  .nav-label{font-size:10px!important}
+  .nav-item.active::after{left:12px!important;right:12px!important}
+  .sb-bottom{display:flex!important;margin-left:auto!important}
+  .top-status{display:none!important}
+  .top-icon-btn,.top-user{width:38px!important;height:38px!important}
+  .main{
+    margin-left:0!important;
+    padding-top:90px!important;
+    padding-left:14px!important;padding-right:14px!important;
+    padding-bottom:30px!important;
   }
 }
-@media (max-width: 520px) {
-  .topbar-nav button {
-    padding: 4px 8px;
-    font-size: 10px;
-  }
-  .topbar-actions .badge {
-    display: none;
-  }
-  .stats-row {
-    grid-template-columns: 1fr;
-  }
-}
+
 </style>
 </head>
 <body>
+<div class="bg-fixed"></div>
+<div class="grid-fixed"></div>
+<div class="toast" id="toast"></div>
 
-<!-- منوی بالای صفحه -->
-<header class="topbar">
-  <div class="topbar-brand">
-    <span>VANTA</span>
-  </div>
-  <nav class="topbar-nav">
-    <button class="active" data-page="dashboard">📊 Dashboard</button>
-    <button data-page="inbounds">🔗 Inbounds <span class="badge" id="nb">0</span></button>
-    <button data-page="addresses">🌐 Clean IP</button>
-    <button data-page="settings">⚙️ Settings</button>
-  </nav>
-  <div class="topbar-actions">
-    <span class="badge" id="online-badge">● Online</span>
-    <button class="logout" onclick="doLogout()">🚪 Logout</button>
-  </div>
-</header>
-
-<!-- محتوای اصلی -->
-<div class="main">
-
-  <!-- صفحه Dashboard -->
-  <div class="page active" id="page-dashboard">
-    <div class="page-header">
-      <div class="page-title">Dashboard</div>
-      <div class="page-sub" id="last-up">-</div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-label">Traffic</div>
-        <div class="stat-val" id="sv-traffic">0<span class="unit"> MB</span></div>
+<!-- LOGIN PAGE -->
+<div id="login-page" style="display:none;width:100%">
+  <div class="login-wrap">
+    <div class="login-orb login-orb-a"></div>
+    <div class="login-orb login-orb-b"></div>
+    <div class="login-box">
+      <div class="login-topline"><span></span><span></span><span></span></div>
+      <div class="login-logo">
+        <div class="login-mark" aria-hidden="true">
+          <div class="login-mark-ring"></div>
+          <div class="login-mark-core">V</div>
+        </div>
+        <div class="login-kicker">SECURE ACCESS</div>
+        <div class="login-title">VANTA</div>
+        <div class="login-sub">Private gateway · administrator access</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Inbounds</div>
-        <div class="stat-val" id="sv-links">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Uptime</div>
-        <div class="stat-val" id="sv-uptime" style="font-size:16px">-</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Domain</div>
-        <div class="stat-val" id="sv-domain" style="font-size:13px;font-weight:500">-</div>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">CPU</div>
-        <div class="stat-val" id="cpu-v" style="font-size:20px">-%</div>
-        <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px">
-          <div id="cpu-b" style="height:100%;border-radius:2px;background:var(--purple);width:0%"></div>
+      <div class="login-divider"><i></i><span>AUTHORIZED AREA</span><i></i></div>
+      <div class="fg">
+        <label class="fl" for="login-pw">ACCESS KEY</label>
+        <div class="login-input-wrap">
+          <span class="login-input-icon">◆</span>
+          <input class="fi" type="password" id="login-pw" placeholder="Enter your access key" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" class="login-reveal" onclick="toggleLoginPassword()" aria-label="Show or hide password">SHOW</button>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">Memory</div>
-        <div class="stat-val" id="mem-v" style="font-size:20px;color:var(--green)">-%</div>
-        <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px">
-          <div id="mem-b" style="height:100%;border-radius:2px;background:var(--green);width:0%"></div>
-        </div>
+      <button class="btn btn-gold login-submit" onclick="doLogin()">
+        <span>ENTER VANTA</span><b>→</b>
+      </button>
+      <div id="login-err" style="color:var(--red);font-size:12px;margin-top:10px;text-align:center;display:none">Invalid password</div>
+      <div class="login-meta">
+        <span>VANTA PANEL</span>
+        <a href="https://t.me/Vantahub1792" target="_blank">@Vantahub1792</a>
       </div>
     </div>
   </div>
-
-  <!-- صفحه Inbounds -->
-  <div class="page" id="page-inbounds">
-    <div class="page-header">
-      <div class="page-title">Inbounds</div>
-      <div class="page-sub">Manage your VLESS configs</div>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-purple" onclick="showAddMo()">➕ Add</button>
-      <input id="srch" placeholder="Search..." style="flex:1;min-width:150px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;outline:none">
-    </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Usage</th>
-            <th>Expiry</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="ltb"></tbody>
-      </table>
-      <div class="empty" id="lempty" style="display:none">No inbounds</div>
-    </div>
-  </div>
-
-  <!-- صفحه Clean IP -->
-  <div class="page" id="page-addresses">
-    <div class="page-header">
-      <div class="page-title">Clean IP</div>
-      <div class="page-sub">Alternative addresses for your configs</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn btn-purple" onclick="showAddAddrMo()">➕ Add</button>
-      <button class="btn btn-ghost" onclick="importAddrs('railway')">🚄 Import Railway IPs</button>
-      <button class="btn btn-danger" onclick="delAllAddrs()">🗑️ Delete All</button>
-    </div>
-    <div class="card"><div id="addr-list"></div></div>
-  </div>
-
-  <!-- صفحه Settings -->
-  <div class="page" id="page-settings">
-    <div class="page-header">
-      <div class="page-title">Settings</div>
-      <div class="page-sub">Change password & Telegram bot</div>
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">Change Password</div>
-        <div class="fg">
-          <label class="fl">Current Password</label>
-          <input class="fi" type="password" id="cpw" placeholder="Current password">
-        </div>
-        <div class="fg">
-          <label class="fl">New Password</label>
-          <input class="fi" type="password" id="npw" placeholder="New password">
-        </div>
-        <button class="btn btn-purple" onclick="chgPw()" style="margin-top:10px;width:100%">Update Password</button>
-      </div>
-      <div class="card">
-        <div class="card-title">Telegram Bot</div>
-        <div class="fg">
-          <label class="fl">Bot Token</label>
-          <input class="fi" id="tg-token" placeholder="123456:ABC-DEF...">
-        </div>
-        <div class="fg">
-          <label class="fl">Admin Chat ID</label>
-          <input class="fi" id="tg-admin-id" placeholder="987654321">
-        </div>
-        <button class="btn btn-purple" onclick="saveSettings()" style="margin-top:10px;width:100%">Save & Restart Bot</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Live Logs</div>
-      <div id="log-container" style="background:#000;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:#a855f7;height:150px;overflow-y:auto;white-space:pre-wrap">Connecting...</div>
-    </div>
-  </div>
-
 </div>
 
-<!-- مودال‌ها -->
+<!-- DASHBOARD -->
+<div id="dashboard-page" style="display:none;width:100%">
+
+  <!-- MOBILE HEADER -->
+  <div class="mob-hd">
+    <div class="mob-tl-group">
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-mob">🌙</button>
+      <div class="lang-row">
+        <button class="lang-btn lang-en active" onclick="setLang('en')">EN</button>
+        <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
+      </div>
+      <div class="mob-social">
+        <a href="https://t.me/Vantahub1792" target="_blank" class="sb-social-btn" title="Telegram Channel">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
+        </a>
+        <a href="https://github.com/vantahubkiarashpanel/Vantapanel/tree/main" target="_blank" class="sb-social-btn" title="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <span style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:2px">VANTA</span>
+  </div>
+
+  <!-- TOP NAVIGATION -->
+  <aside class="sidebar" id="sb">
+    <div class="sb-brand" aria-label="VANTA Panel">
+      <div class="sb-title">VANTA</div>
+    </div>
+
+    <nav class="sb-nav" aria-label="Primary navigation">
+      <button class="nav-item active" data-page="dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/></svg>
+        <span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span>
+      </button>
+      <button class="nav-item" data-page="inbounds">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+        <span class="nav-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</span>
+        <span class="nav-badge" id="nb">0</span>
+      </button>
+      <button class="nav-item" data-page="traffic">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h4l3-9 4 12 3-7h4"/></svg>
+        <span class="nav-label" data-en="Traffic" data-fa="ترافیک">Traffic</span>
+      </button>
+      <button class="nav-item" data-page="addresses">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18"/><path d="M12 3a14 14 0 000 18"/></svg>
+        <span class="nav-label" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</span>
+      </button>
+      <button class="nav-item" data-page="notifications">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
+        <span class="nav-label" data-en="Notifications" data-fa="اعلانات">Notifications</span>
+        <span class="nav-badge" id="notif-badge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" data-page="security">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span class="nav-label" data-en="Security" data-fa="امنیت">Security</span>
+      </button>
+      <button class="nav-item" data-page="settings">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.1H10v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.1v4h-.1a1.7 1.7 0 00-1.6 1z"/></svg>
+        <span class="nav-label" data-en="Settings" data-fa="تنظیمات">Settings</span>
+      </button>
+    </nav>
+
+    <div class="sb-bottom">
+      <div class="top-actions">
+        <div class="top-status"><span class="top-status-dot"></span><span data-en="Online" data-fa="آنلاین">Online</span></div>
+        <button class="top-icon-btn" onclick="showPage('notifications')" title="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
+          <span class="nav-badge" id="top-notif-badge" style="display:none;top:1px;right:1px">0</span>
+        </button>
+        <button class="top-user" onclick="doLogout()" title="Logout" aria-label="Logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21c.8-4 3.2-6 7-6s6.2 2 7 6"/></svg>
+        </button>
+      </div>
+      <div class="legacy-controls">
+        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-desk">🌙 Theme</button>
+        <div class="lang-row">
+          <button class="lang-btn lang-en active" onclick="setLang('en')">EN</button>
+          <button class="lang-btn lang-fa" onclick="setLang('fa')">FA</button>
+        </div>
+        <button class="logout-btn" onclick="doLogout"><span data-en="Logout" data-fa="خروج">Logout</span></button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- Dashboard -->
+    <section class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title" data-en="Dashboard" data-fa="داشبورد">Dashboard</div>
+          <div class="page-sub" id="last-up">-</div>
+        </div>
+      </div>
+
+      <div class="alerts-box" id="alerts-box">
+        <div class="alerts-title">
+          <span>⚠️</span>
+          <span data-en="SYSTEM WARNINGS" data-fa="هشدارهای سیستم">SYSTEM WARNINGS</span>
+        </div>
+        <div id="alerts-list"></div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="animation-delay:.08s"><div class="stat-label" data-en="Traffic" data-fa="ترافیک">Traffic</div><div class="stat-val" id="sv-traffic">-<span class="stat-unit"> MB</span></div></div>
+        <div class="stat-card" style="animation-delay:.16s"><div class="stat-label" data-en="Inbounds" data-fa="اینباندها">Inbounds</div><div class="stat-val" id="sv-links">-</div></div>
+        <div class="stat-card" style="animation-delay:.24s"><div class="stat-label" data-en="Uptime" data-fa="آپتایم">Uptime</div><div class="stat-val" id="sv-uptime" style="font-size:15px">-</div></div>
+        <div class="stat-card" style="animation-delay:.32s"><div class="stat-label" data-en="Domain" data-fa="دامنه">Domain</div><div class="stat-val" id="sv-domain" style="font-size:10px;word-break:break-all;font-weight:500">-</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hd"><div class="card-title" data-en="CPU" data-fa="پردازنده">CPU</div><span id="cpu-v" style="font-size:17px;font-weight:700;color:var(--gold)">-%</span></div>
+          <div class="sys-bar"><div class="sys-fill" id="cpu-b" style="background:var(--gold)"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title" data-en="Memory" data-fa="حافظه">Memory</div><span id="mem-v" style="font-size:17px;font-weight:700;color:var(--green)">-%</span></div>
+          <div class="sys-bar"><div class="sys-fill" id="mem-b" style="background:var(--green)"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><div class="card-title" data-en="Hourly Traffic" data-fa="ترافیک ساعتی">Hourly Traffic</div></div>
+        <div class="chart-container"><canvas id="tc"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Inbounds -->
+    <section class="page" id="page-inbounds">
+      <div class="page-header">
+        <div>
+          <div class="page-title" data-en="Inbounds" data-fa="اینباندها">Inbounds</div>
+          <div class="page-sub" data-en="VLESS over WebSocket · TLS" data-fa="VLESS روی WebSocket با TLS">VLESS over WebSocket · TLS</div>
+        </div>
+        <button class="btn btn-gold" onclick="showAddMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button>
+      </div>
+      <div class="tb">
+        <div class="search-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="srch" data-ph-en="Search name…" data-ph-fa="جستجوی نام…" placeholder="Search name…" oninput="filterLinks()">
+        </div>
+        <div class="filter-chips">
+          <button class="chip active" data-filter="all" onclick="setFilter('all',this)" data-en="All" data-fa="همه">All</button>
+          <button class="chip" data-filter="active" onclick="setFilter('active',this)" data-en="Active" data-fa="فعال">Active</button>
+          <button class="chip" data-filter="off" onclick="setFilter('off',this)" data-en="Off" data-fa="غیرفعال">Off</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>#</th>
+              <th data-en="Name" data-fa="نام">Name</th>
+              <th data-en="Type" data-fa="نوع">Type</th>
+              <th data-en="Usage" data-fa="مصرف">Usage</th>
+              <th data-en="IPs" data-fa="آی‌پی">IPs</th>
+              <th data-en="Expiry" data-fa="انقضا">Expiry</th>
+              <th data-en="Status" data-fa="وضعیت">Status</th>
+              <th data-en="Actions" data-fa="عملیات">Actions</th>
+            </tr></thead>
+            <tbody id="ltb"></tbody>
+          </table>
+        </div>
+        <div class="m-cards" id="mcards"></div>
+        <div class="empty" id="lempty" style="display:none" data-en="No inbounds found" data-fa="هیچ اینباندی یافت نشد">No inbounds found</div>
+      </div>
+    </section>
+
+    <!-- Traffic -->
+    <section class="page" id="page-traffic">
+      <div class="page-header"><div><div class="page-title" data-en="Traffic" data-fa="ترافیک">Traffic</div><div class="page-sub" data-en="Statistics & Inbound comparison" data-fa="آمار و مقایسه مصرف کاربران">Statistics & Inbound comparison</div></div></div>
+      <div class="grid-2" style="margin-bottom:14px">
+        <div class="card">
+          <div class="sl-item"><span class="sl-k" data-en="Total Traffic" data-fa="کل ترافیک">Total Traffic</span><span class="sl-v" id="t-tr">-</span></div>
+          <div class="sl-item"><span class="sl-k" data-en="Total Requests" data-fa="کل درخواست‌ها">Total Requests</span><span class="sl-v" id="t-rq">-</span></div>
+          <div class="sl-item"><span class="sl-k" data-en="Uptime" data-fa="آپتایم">Uptime</span><span class="sl-v" id="t-up">-</span></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title" data-en="Inbound Traffic Share" data-fa="سهم ترافیک کاربران">Inbound Traffic Share</div></div>
+          <div class="chart-container"><canvas id="inbound-chart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section class="page" id="page-notifications">
+      <div class="page-header">
+        <div><div class="page-title" data-en="Notifications" data-fa="اعلانات">Notifications</div><div class="page-sub" data-en="Updates, alerts & system messages" data-fa="بروزرسانی‌ها، هشدارها و پیام‌های سیستم">Updates, alerts & system messages</div></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="markAllSeen()" data-en="Mark all read" data-fa="خوانده شدن همه">Mark all read</button>
+          <button class="btn btn-danger btn-sm" onclick="clearNotifs()" data-en="Clear all" data-fa="حذف همه">Clear all</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div id="notif-list" style="padding:4px 0">
+          <div class="empty" data-en="No notifications" data-fa="هیچ اعلانی وجود ندارد">No notifications</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Clean IP -->
+    <section class="page" id="page-addresses">
+      <div class="page-header">
+        <div><div class="page-title" data-en="Clean IP" data-fa="آی‌پی تمیز">Clean IP</div><div class="page-sub" data-en="Subscription alternative addresses" data-fa="آدرس‌های جایگزین اشتراک">Subscription alternative addresses</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="importAddrs('railway')" data-en="🚄 Railway IP" data-fa="🚄 آی‌پی ریلوی">🚄 Railway IP</button>
+          <button class="btn btn-danger" onclick="delAllAddrs()" data-en="Delete All" data-fa="پاک کردن همه">Delete All</button>
+          <button class="btn btn-gold" onclick="showAddAddrMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px" data-en="Add your own clean IPs or import from Railway/Cloudflare" data-fa="آی‌پی‌های تمیز خودت رو اضافه کن یا از Railway/Cloudflare ایمپورت کن">Add your own clean IPs or import from Railway/Cloudflare</div>
+        <div id="addr-list"></div>
+      </div>
+    </section>
+
+    <!-- Security & Settings -->
+    <section class="page" id="page-security">
+      <div class="page-header"><div><div class="page-title" data-en="Security & Settings" data-fa="امنیت و تنظیمات">Security & Settings</div><div class="page-sub" data-en="Settings, Password & Live logs" data-fa="تنظیمات، تغییر رمز پنل و لاگ‌های زنده">Settings, Password & Live logs</div></div></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hd"><div class="card-title" data-en="Telegram Bot Settings" data-fa="تنظیمات ربات تلگرام">Telegram Bot Settings</div></div>
+          <div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="tg-token" placeholder="123456:ABC-DEF..."></div>
+          <div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="tg-admin-id" placeholder="987654321"></div>
+          <button class="btn btn-gold" onclick="saveSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save & Restart Bot" data-fa="ذخیره و ریستارت ربات">Save & Restart Bot</button>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title" data-en="Change Password" data-fa="تغییر رمز عبور">Change Password</div></div>
+          <div class="fg"><label class="fl" data-en="Current Password" data-fa="رمز فعلی">Current Password</label><input class="fi" type="password" id="cpw" placeholder="Current password"></div>
+          <div class="fg"><label class="fl" data-en="New Password" data-fa="رمز جدید">New Password</label><input class="fi" type="password" id="npw" placeholder="Min 4 chars"></div>
+          <button class="btn btn-gold" onclick="chgPw()" style="margin-top:10px;width:100%;justify-content:center" data-en="Update Password" data-fa="بروزرسانی رمز">Update Password</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="card-hd"><div class="card-title" data-en="Live Logs" data-fa="لاگ‌های زنده">Live Logs</div></div>
+        <div class="live-logs-container" id="log-container">Connecting to live logs...</div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="page" id="page-settings">
+      <div class="page-header"><div><div class="page-title" data-en="Settings" data-fa="تنظیمات">Settings</div><div class="page-sub" data-en="Railway Permanent Database & Preferences" data-fa="دیتابیس دائمی Railway و تنظیمات">Railway Permanent Database & Preferences</div></div></div>
+
+      <!-- Permanent Database -->
+      <div class="card" style="border:1px solid rgba(129,140,248,0.25)">
+        <div class="card-hd">
+          <div class="card-title" style="color:#818cf8">💾 <span data-en="Permanent Database" data-fa="دیتابیس دائمی">Permanent Database</span></div>
+          <span id="rdb-status" style="font-size:11px;color:var(--text3)">-</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5" data-en="Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage." data-fa="به Railway متصل شوید، یک پروژه انتخاب کنید و مطمئن شوید یک volume پایدار در مسیر /data وجود دارد.">
+          Connect to Railway, select a project and ensure a persistent volume at /data exists for permanent storage.
+        </div>
+        <div class="fg">
+          <label class="fl" data-en="Railway Token" data-fa="توکن Railway">Railway Token</label>
+          <div style="display:flex;gap:8px">
+            <input class="fi" type="password" id="rw-token" placeholder="rly_..." style="flex:1">
+            <button class="btn btn-ghost btn-sm" onclick="fetchRailwayProjects()" id="rw-fetch-btn" data-en="Fetch" data-fa="دریافت">Fetch</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl" data-en="Project" data-fa="پروژه">Project</label>
+          <select class="fs" id="rw-project" disabled>
+            <option value="" data-en="-- Select a project --" data-fa="-- پروژه را انتخاب کنید --">-- Select a project --</option>
+          </select>
+        </div>
+        <div class="fg" id="rw-volume-info" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:8px;border:1px solid var(--border)" id="rw-volume-box">
+            <span id="rw-volume-icon" style="font-size:20px">❓</span>
+            <div>
+              <div id="rw-volume-title" style="font-weight:600;font-size:13px">-</div>
+              <div id="rw-volume-desc" style="font-size:11px;color:var(--text3);margin-top:2px">-</div>
+            </div>
+            <button class="btn btn-gold btn-sm" id="rw-create-btn" style="margin-left:auto;display:none" onclick="createRailwayVolume()" data-en="Create Volume" data-fa="ایجاد Volume">Create Volume</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bot Settings (moved here too) -->
+      <div class="card">
+        <div class="card-hd"><div class="card-title" data-en="Telegram Bot" data-fa="ربات تلگرام">Telegram Bot</div></div>
+        <div class="fg"><label class="fl" data-en="Bot Token" data-fa="توکن ربات">Bot Token</label><input class="fi" type="text" id="rw-tg-token" placeholder="123456:ABC-DEF..."></div>
+        <div class="fg"><label class="fl" data-en="Admin Chat ID" data-fa="شناسه ادمین">Admin Chat ID</label><input class="fi" type="text" id="rw-tg-admin" placeholder="987654321"></div>
+        <div class="fg" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <input type="checkbox" id="rw-tg-notify-conn" style="width:16px;height:16px;accent-color:var(--gold)">
+          <label for="rw-tg-notify-conn" style="font-size:12px;cursor:pointer" data-en="Notify on every connect / disconnect" data-fa="اعلان هر ورود و خروج (اتصال و قطع اتصال) کاربران">Notify on every connect / disconnect</label>
+        </div>
+        <button class="btn btn-gold" onclick="saveAllSettings()" style="margin-top:10px;width:100%;justify-content:center" data-en="Save All Settings" data-fa="ذخیره همه تنظیمات">Save All Settings</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modals -->
 <div class="mo" id="mo-add" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="mo-box">
     <button class="mo-close" onclick="document.getElementById('mo-add').classList.remove('show')">✕</button>
-    <div class="mo-title">Add Inbound</div>
-    <div class="fg">
-      <label class="fl">Remark</label>
-      <input class="fi" id="nl" placeholder="User 1">
-    </div>
+    <div class="mo-title" data-en="ADD INBOUND" data-fa="افزودن اینباند">ADD INBOUND</div>
+    <div class="fg"><label class="fl" data-en="Remark" data-fa="توضیح">Remark</label><input class="fi" id="nl" data-ph-en="e.g. User 1" data-ph-fa="مثلاً کاربر ۱" placeholder="e.g. User 1"></div>
     <div class="fr">
-      <div class="fg">
-        <label class="fl">Traffic Limit (GB)</label>
-        <input class="fi" id="nv" type="number" placeholder="0 = ∞">
+      <div class="fg"><label class="fl" data-en="Traffic Limit" data-fa="محدودیت ترافیک">Traffic Limit</label><input class="fi" id="nv" type="number" min="0" step=".1" placeholder="0 = ∞"></div>
+      <div class="fg" style="max-width:100px"><label class="fl" data-en="Unit" data-fa="واحد">Unit</label><select class="fs" id="nu"><option>GB</option></select></div>
+    </div>
+    <div class="fg"><label class="fl" data-en="Max IPs" data-fa="حداکثر آی‌پی">Max IPs</label><input class="fi" id="nc" type="number" min="0" placeholder="0 = ∞"></div>
+    <div class="fg"><label class="fl" data-en="Days Valid" data-fa="روزهای اعتبار">Days Valid</label><input class="fi" id="nd" type="number" min="0" placeholder="0 = No expiry"></div>
+    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input type="checkbox" id="n_vless_enabled" checked style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('n','vless')">
+        <label for="n_vless_enabled" style="font-weight:700;cursor:pointer">VLESS</label>
       </div>
-      <div class="fg">
-        <label class="fl">Days Valid</label>
-        <input class="fi" id="nd" type="number" placeholder="0 = ∞">
+      <div id="n_vless_box">
+        <div class="fr">
+          <div class="fg">
+            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
+            <select class="fs" id="n_vless_transport" onchange="syncAlpnDefault('vless','n_vless_transport','n_vless_alpn')">
+              <option value="ws">WebSocket</option>
+              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
+              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
+            <select class="fs" id="n_vless_fp">
+              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
+              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
+              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
+          <select class="fs" id="n_vless_alpn">
+            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
+            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
+          </select>
+        </div>
       </div>
     </div>
-    <button class="btn btn-purple" onclick="createLink()" style="width:100%;margin-top:12px">CREATE</button>
+    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input type="checkbox" id="n_trojan_enabled" style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('n','trojan')">
+        <label for="n_trojan_enabled" style="font-weight:700;cursor:pointer">Trojan</label>
+      </div>
+      <div id="n_trojan_box" style="display:none">
+        <div class="fr">
+          <div class="fg">
+            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
+            <select class="fs" id="n_trojan_transport" onchange="syncAlpnDefault('trojan','n_trojan_transport','n_trojan_alpn')">
+              <option value="ws">WebSocket</option>
+              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
+              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
+            <select class="fs" id="n_trojan_fp">
+              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
+              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
+              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
+          <select class="fs" id="n_trojan_alpn">
+            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
+            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="fg" style="opacity:.6">
+      <label class="fl" data-en="Port" data-fa="پورت">Port</label>
+      <input class="fi" value="443" readonly style="cursor:not-allowed">
+    </div>
+    <button class="btn btn-gold" onclick="createLink()" style="width:100%;justify-content:center;margin-top:12px;padding:12px" data-en="CREATE" data-fa="ایجاد">CREATE</button>
+  </div>
+</div>
+
+<div class="mo" id="mo-edit" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="mo-box">
+    <button class="mo-close" onclick="document.getElementById('mo-edit').classList.remove('show')">✕</button>
+    <div class="mo-title" id="et">EDIT INBOUND</div>
+    <input type="hidden" id="eu">
+    <div class="fg"><label class="fl" data-en="Name" data-fa="نام">Name</label><input class="fi" id="en2" readonly style="opacity:.5;cursor:not-allowed"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl" data-en="Traffic Limit" data-fa="محدودیت ترافیک">Traffic Limit</label><input class="fi" id="el" type="number" min="0" step=".1" placeholder="0 = ∞"></div>
+      <div class="fg" style="max-width:100px"><label class="fl" data-en="Unit" data-fa="واحد">Unit</label><select class="fs" id="eu2"><option>GB</option></select></div>
+    </div>
+    <div class="fg"><label class="fl" data-en="Max IPs" data-fa="حداکثر آی‌پی">Max IPs</label><input class="fi" id="ec" type="number" min="0" placeholder="0 = ∞"></div>
+    <div class="fg"><label class="fl" data-en="Extend Days" data-fa="افزایش روزها">Extend Days</label><input class="fi" id="ed" type="number" min="0" placeholder="0 = no change"></div>
+    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input type="checkbox" id="e_vless_enabled" style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('e','vless')">
+        <label for="e_vless_enabled" style="font-weight:700;cursor:pointer">VLESS</label>
+      </div>
+      <div id="e_vless_box">
+        <div class="fr">
+          <div class="fg">
+            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
+            <select class="fs" id="e_vless_transport" onchange="syncAlpnDefault('vless','e_vless_transport','e_vless_alpn')">
+              <option value="ws">WebSocket</option>
+              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
+              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
+            <select class="fs" id="e_vless_fp">
+              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
+              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
+              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
+          <select class="fs" id="e_vless_alpn">
+            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
+            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input type="checkbox" id="e_trojan_enabled" style="width:16px;height:16px;accent-color:var(--gold)" onchange="toggleVariantBox('e','trojan')">
+        <label for="e_trojan_enabled" style="font-weight:700;cursor:pointer">Trojan</label>
+      </div>
+      <div id="e_trojan_box" style="display:none">
+        <div class="fr">
+          <div class="fg">
+            <label class="fl" data-en="Transport" data-fa="ترابرد">Transport</label>
+            <select class="fs" id="e_trojan_transport" onchange="syncAlpnDefault('trojan','e_trojan_transport','e_trojan_alpn')">
+              <option value="ws">WebSocket</option>
+              <option value="xhttp-packet-up">XHTTP (packet-up)</option>
+              <option value="xhttp-stream-up">XHTTP (stream-up)</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl" data-en="Fingerprint" data-fa="فینگرپرینت">Fingerprint</label>
+            <select class="fs" id="e_trojan_fp">
+              <option value="chrome">chrome</option><option value="firefox">firefox</option><option value="safari">safari</option>
+              <option value="ios">ios</option><option value="android">android</option><option value="edge">edge</option>
+              <option value="360">360</option><option value="qq">qq</option><option value="random">random</option><option value="randomized">randomized</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl" data-en="ALPN" data-fa="ALPN">ALPN</label>
+          <select class="fs" id="e_trojan_alpn">
+            <option value="h3">h3</option><option value="h2">h2</option><option value="http/1.1">http/1.1</option>
+            <option value="h3,h2,http/1.1">h3,h2,http/1.1</option><option value="h3,h2">h3,h2</option><option value="h2,http/1.1">h2,http/1.1</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="fg" style="opacity:.6">
+      <label class="fl" data-en="Port" data-fa="پورت">Port</label>
+      <input class="fi" value="443" readonly style="cursor:not-allowed">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-gold" onclick="saveEdit()" style="flex:1;justify-content:center;padding:12px" data-en="SAVE" data-fa="ذخیره">SAVE</button>
+      <button class="btn btn-danger" onclick="resetTraf()" style="padding:12px" data-en="Reset" data-fa="بازنشانی">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="mo-qr" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="mo-box" style="max-width:340px">
+    <button class="mo-close" onclick="document.getElementById('mo-qr').classList.remove('show')">✕</button>
+    <div class="mo-title" data-en="QR CODE" data-fa="کد QR">QR CODE</div>
+    <div class="qr-box"><img id="qr-img" src="" alt="QR"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
+      <button class="btn btn-gold btn-sm" onclick="dlQR()" style="padding:10px 16px" data-en="Download" data-fa="دانلود">Download</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mo-qr').classList.remove('show')" style="padding:10px 16px" data-en="Close" data-fa="بستن">Close</button>
+    </div>
   </div>
 </div>
 
 <div class="mo" id="mo-addr" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="mo-box">
     <button class="mo-close" onclick="document.getElementById('mo-addr').classList.remove('show')">✕</button>
-    <div class="mo-title">Add Clean IP</div>
-    <div class="fg">
-      <label class="fl">IPs (one per line)</label>
-      <textarea class="fi" id="na" rows="4" placeholder="8.8.8.8&#10;example.com" style="resize:vertical;font-family:monospace"></textarea>
-    </div>
-    <button class="btn btn-purple" onclick="addAddrs()" style="width:100%;margin-top:12px">ADD ALL</button>
+    <div class="mo-title" data-en="ADD CLEAN IP" data-fa="افزودن آی‌پی تمیز">ADD CLEAN IP</div>
+    <div class="fg"><label class="fl" data-en="IPs / Domains (one per line)" data-fa="آی‌پی‌ها (هر خط یک)">IPs / Domains</label><textarea class="fi" id="na" rows="5" placeholder="8.8.8.8&#10;example.com" style="resize:vertical;font-family:monospace"></textarea></div>
+    <button class="btn btn-gold" onclick="addAddrs()" style="width:100%;justify-content:center;margin-top:12px;padding:12px" data-en="ADD ALL" data-fa="افزودن همه">ADD ALL</button>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <script>
-let allLinks = [], allAddrs = [], isAuth = false, logsWS = null;
+function $(s){return document.querySelector(s)}
+function $m(id){return document.getElementById(id)}
+function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function protoBadge(variants){
+  if(!variants)return 'VLESS';
+  const on=[];
+  if(variants.vless&&variants.vless.enabled)on.push('VLESS');
+  if(variants.trojan&&variants.trojan.enabled)on.push('TROJAN');
+  return on.length?on.join('+'):'VLESS';
+}
 
-function $(s){ return document.querySelector(s); }
-function $m(id){ return document.getElementById(id); }
+const langMap={
+  en:{edit:'Edit',copy:'Copy',sub:'Sub',qr:'QR',del:'Del',gh:'View on GitHub'},
+  fa:{edit:'ویرایش',copy:'کپی',sub:'اشتراک',qr:'QR',del:'حذف',gh:'مشاهده در گیت‌هاب'}
+};
+function tr(key){return(langMap[lang]&&langMap[lang][key])||langMap['en'][key]||key}
 
-// ===== منو =====
-document.querySelectorAll('.topbar-nav button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.topbar-nav button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    $m('page-' + this.dataset.page).classList.add('active');
+let lang=localStorage.getItem('ll')||'en';
+let theme=localStorage.getItem('theme')||'dark';
+let allLinks=[];
+let cf='all';
+let sData={};
+let tChart=null;
+let iChart=null;
+
+// Generates visually distinct colors using the golden-angle rotation so that
+// adjacent chart segments never look alike, regardless of how many users exist.
+function genDistinctColors(n){
+  const colors=[];
+  const GOLDEN_ANGLE=137.508;
+  const startHue=45; // start near gold to match theme, then spread out
+  for(let i=0;i<n;i++){
+    const hue=(startHue+i*GOLDEN_ANGLE)%360;
+    const sat=70+((i*17)%20);   // 70-90%
+    const light=48+((i*11)%16); // 48-64%
+    colors.push(`hsl(${hue.toFixed(1)},${sat}%,${light}%)`);
+  }
+  return colors;
+}
+let allAddrs=[];
+let isAuthenticated=false;
+let logsWS=null;
+
+function setTheme(t){
+  theme=t;
+  if(t==='light')document.body.classList.add('light-mode');
+  else document.body.classList.remove('light-mode');
+  localStorage.setItem('theme',t);
+  const icon=t==='light'?'☀️':'🌙';
+  const mb=$m('theme-btn-mob');
+  const db=$m('theme-btn-desk');
+  if(mb)mb.innerHTML=icon;
+  if(db)db.innerHTML=icon+' Theme';
+  updChartColors();
+}
+function toggleTheme(){setTheme(theme==='dark'?'light':'dark')}
+
+function setLang(l){
+  lang=l;
+  document.querySelectorAll('.lang-en').forEach(e=>e.classList.toggle('active',l==='en'));
+  document.querySelectorAll('.lang-fa').forEach(e=>e.classList.toggle('active',l==='fa'));
+  document.body.dir=l==='fa'?'rtl':'ltr';
+  document.querySelectorAll('[data-en]').forEach(el=>{
+    const v=el.getAttribute('data-'+l);
+    if(v)el.textContent=v;
   });
+  document.querySelectorAll('[data-ph-en]').forEach(el=>{
+    const v=el.getAttribute('data-ph-'+l);
+    if(v)el.placeholder=v;
+  });
+  localStorage.setItem('ll',l);
+  filterLinks();
+}
+
+function connectLogsWS(){
+  if(logsWS){try{logsWS.close()}catch(e){}}
+  const protocol=location.protocol==='https:'?'wss:':'ws:';
+  const token=document.cookie.split('; ').find(r=>r.startsWith('ren_session='))?.split('=')[1];
+  if(!token)return;
+  logsWS=new WebSocket(`${protocol}//${location.host}/ws/live-logs?token=${token}`);
+  logsWS.onmessage=function(e){
+    const c=$m('log-container');
+    if(c){c.textContent+=e.data+'\n';c.scrollTop=c.scrollHeight}
+  };
+  logsWS.onerror=function(){$m('log-container').textContent='Connection error. Reconnecting...'};
+  logsWS.onclose=function(){setTimeout(connectLogsWS,5000)};
+}
+
+async function checkAuth(){
+  try{
+    const r=await fetch('/api/me');
+    const d=await r.json();
+    if(d.authenticated)showDashboard();
+    else showLogin();
+  }catch(e){showLogin()}
+}
+
+function showLogin(){
+  isAuthenticated=false;
+  $m('login-page').style.display='';
+  $m('dashboard-page').style.display='none';
+}
+
+function showDashboard(){
+  isAuthenticated=true;
+  $m('login-page').style.display='none';
+  $m('dashboard-page').style.display='';
+  initChart();
+  loadStats();
+  loadLinks();
+  loadAddrs();
+  loadSettings();
+  loadNotifs();
+  updateNotifBadge();
+  connectLogsWS();
+}
+
+function toggleLoginPassword(){const input=$m('login-pw');const btn=document.querySelector('.login-reveal');if(!input)return;const showing=input.type==='text';input.type=showing?'password':'text';if(btn)btn.textContent=showing?'SHOW':'HIDE'}
+    async function doLogin(){
+  const pw=$m('login-pw').value;
+  $m('login-err').style.display='none';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+    if(r.ok){$m('login-pw').value='';showDashboard()}
+    else $m('login-err').style.display='block';
+  }catch(e){$m('login-err').style.display='block'}
+}
+
+async function doLogout(){
+  await fetch('/api/logout',{method:'POST'});
+  showLogin();
+}
+
+document.querySelectorAll('.nav-item[data-page]').forEach(el=>{
+  el.addEventListener('click',()=>switchPage(el.dataset.page));
 });
 
-function toast(msg) {
-  let t = $m('toast');
-  t.textContent = msg;
-  t.className = 'toast show';
-  clearTimeout(t._t);
-  t._t = setTimeout(() => t.className = 'toast', 2500);
+function switchPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const target=$m('page-'+id);
+  if(target)target.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===id));
 }
 
-async function loadStats() {
-  try {
-    const r = await fetch('/stats');
-    if (r.status === 401) return;
-    const d = await r.json();
-    $m('sv-traffic').innerHTML = (d.total_traffic_mb || 0) + '<span class="unit"> MB</span>';
-    $m('sv-links').textContent = d.links_count || 0;
-    $m('sv-uptime').textContent = d.uptime || '-';
-    $m('sv-domain').textContent = d.domain || '-';
-    $m('nb').textContent = d.links_count || 0;
-    if (d.cpu_percent !== undefined) {
-      $m('cpu-v').textContent = d.cpu_percent.toFixed(1) + '%';
-      $m('cpu-b').style.width = d.cpu_percent + '%';
+function toast(msg,err=false){
+  const t=$m('toast');
+  t.textContent=msg;
+  t.className='toast'+(err?' err':'')+' show';
+  clearTimeout(t._hide);
+  t._hide=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function fmtB(b){
+  if(!b||b===0)return'0 B';
+  return b>=1073741824?(b/1073741824).toFixed(2)+' GB':
+         b>=1048576?(b/1048576).toFixed(2)+' MB':(b/1024).toFixed(1)+' KB';
+}
+function fmtLim(b){
+  if(!b||b===0)return'∞';
+  const g=b/1073741824;
+  return(g%1===0?g.toFixed(0):g.toFixed(1))+' GB';
+}
+function fmtExp(ea){
+  if(!ea||ea===0)return'∞';
+  const d=new Date(ea)-new Date();
+  if(d<=0)return'Expired';
+  const days=Math.floor(d/86400000);
+  if(days>0)return days+'d';
+  const hours=Math.floor(d/3600000);
+  if(hours>0)return hours+'h';
+  return Math.floor(d/60000)+'m';
+}
+
+function setFilter(filter,el){
+  cf=filter;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  if(el)el.classList.add('active');
+  filterLinks();
+}
+
+function filterLinks(){
+  const q=($m('srch')?.value||'').toLowerCase();
+  let r=allLinks;
+  if(cf==='active')r=r.filter(l=>l.active);
+  else if(cf==='off')r=r.filter(l=>!l.active);
+  if(q)r=r.filter(l=>l.label.toLowerCase().includes(q)||l.uuid.toLowerCase().includes(q));
+  renderLinks(r);
+}
+
+function processAlertsAndCharts(){
+  const alertsList=$m('alerts-list');
+  const alertsBox=$m('alerts-box');
+  alertsList.innerHTML='';
+  let alertCount=0;
+
+  allLinks.forEach(l=>{
+    const u=l.used_bytes||0;
+    const lim=l.limit_bytes||0;
+    const pct=lim>0?(u/lim)*100:0;
+    if(lim>0&&pct>=90){
+      alertCount++;
+      alertsList.innerHTML+=`<div class="alert-item"><span style="font-weight:600">🔴 '${esc(l.label)}' near limit:</span><span>${pct.toFixed(1)}% Used</span></div>`;
     }
-    if (d.memory_percent !== undefined) {
-      $m('mem-v').textContent = d.memory_percent.toFixed(1) + '%';
-      $m('mem-b').style.width = d.memory_percent + '%';
+    if(l.expires_at){
+      const diff=new Date(l.expires_at)-new Date();
+      const days=diff/86400000;
+      if(days>0&&days<=3){
+        alertCount++;
+        alertsList.innerHTML+=`<div class="alert-item"><span style="font-weight:600">🟡 '${esc(l.label)}' expiring soon:</span><span>${days.toFixed(1)} Days</span></div>`;
+      }
     }
-  } catch(e) {}
+  });
+  alertsBox.style.display=alertCount>0?'block':'none';
+
+  if(iChart){
+    const sorted=[...allLinks].sort((a,b)=>(b.used_bytes||0)-(a.used_bytes||0)).slice(0,8);
+    iChart.data.labels=sorted.map(x=>x.label);
+    iChart.data.datasets[0].data=sorted.map(x=>Math.round((x.used_bytes||0)/(1024*1024)));
+    iChart.data.datasets[0].backgroundColor=genDistinctColors(sorted.length);
+    iChart.update();
+  }
 }
 
-function fmtB(b) {
-  if (!b) return '0 B';
-  return b >= 1073741824 ? (b/1073741824).toFixed(2) + ' GB' :
-         b >= 1048576 ? (b/1048576).toFixed(2) + ' MB' :
-         (b/1024).toFixed(1) + ' KB';
-}
-function fmtLim(b) {
-  return (!b || b === 0) ? '∞' : (b/1073741824).toFixed(1) + ' GB';
-}
-function fmtExp(ea) {
-  if (!ea) return '∞';
-  const d = new Date(ea) - new Date();
-  if (d <= 0) return 'Expired';
-  const days = Math.floor(d / 86400000);
-  return days > 0 ? days + 'd' : Math.floor(d / 3600000) + 'h';
-}
-
-async function loadLinks() {
-  try {
-    const r = await fetch('/api/links');
-    if (!r.ok) return;
-    const d = await r.json();
-    allLinks = d.links || [];
-    renderLinks();
-  } catch(e) {}
-}
-
-function renderLinks() {
-  const tb = $m('ltb'), em = $m('lempty');
-  const q = ($m('srch')?.value || '').toLowerCase();
-  let items = allLinks;
-  if (q) items = items.filter(l => l.label.toLowerCase().includes(q));
-  if (!items || !items.length) {
-    tb.innerHTML = '';
-    em.style.display = 'block';
+function renderLinks(links){
+  const tb=$m('ltb');
+  const em=$m('lempty');
+  const mc=$m('mcards');
+  if(!links||!links.length){
+    tb.innerHTML='';mc.innerHTML='';em.style.display='block';
+    em.textContent=em.getAttribute('data-'+lang)||'No inbounds found';
     return;
   }
-  em.style.display = 'none';
-  tb.innerHTML = items.map((l, i) => {
-    const u = l.used_bytes || 0, lim = l.limit_bytes || 0;
-    const pct = lim > 0 ? Math.min(100, (u/lim)*100) : 0;
-    const col = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--gold)' : 'var(--green)';
-    return `<tr>
-      <td style="color:var(--text3)">${i+1}</td>
-      <td style="font-weight:600">${l.label}</td>
-      <td><span class="tag tag-on">VLESS</span></td>
-      <td><div class="pill"><span>${fmtB(u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${pct}%;background:${col}"></div></div><span>${fmtLim(lim)}</span></div></td>
-      <td>${fmtExp(l.expires_at)}</td>
-      <td><span class="tag ${l.active?'tag-on':'tag-off'}">${l.active?'On':'Off'}</span></td>
-      <td><div style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="toggle ${l.active?'on':''}" data-uid="${l.uuid}" onclick="togLink(this)"></button>
-        <button class="act-btn act-edit" onclick="cpLink('${(l.vless_links||[]).join('\\n')}')">Copy</button>
-        <button class="act-btn act-del" onclick="delLink('${l.uuid}')">Del</button>
-      </div></td>
-    </tr>`;
+  em.style.display='none';
+  let idx=links.length;
+  const rows=links.map(l=>{
+    const u=l.used_bytes||0;
+    const lim=l.limit_bytes||0;
+    const pct=lim>0?Math.min(100,(u/lim)*100):0;
+    const col=pct>90?'var(--red)':pct>70?'var(--yellow)':'var(--gold)';
+    const ex=fmtExp(l.expires_at);
+    const ec=ex==='Expired'?'var(--red)':ex==='∞'?'var(--text3)':'var(--text2)';
+    const i=idx--;
+    const cc=l.current_connections||0;
+    const mc2=l.max_connections||0;
+    return{l,pct,col,ex,ec,i,cc,mc2,u,lim};
+  });
+
+  const editText=tr('edit');
+  const copyText=tr('copy');
+  const subText=tr('sub');
+  const qrText=tr('qr');
+  const delText=tr('del');
+
+  tb.innerHTML=rows.map(r=>`<tr>
+    <td style="color:var(--text3);font-size:10.5px">${r.i}</td>
+    <td style="font-weight:600">${esc(r.l.label)}</td>
+    <td><span class="tag tag-vless">${protoBadge(r.l.variants)}</span></td>
+    <td><div class="pill"><span class="pill-used">${fmtB(r.u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${r.pct}%;background:${r.col}"></div></div><span class="pill-lim">${fmtLim(r.lim)}</span></div></td>
+    <td style="font-size:11px;font-weight:600;color:${r.mc2>0&&r.cc>=r.mc2?'var(--red)':'var(--text2)'}">${r.cc}/${r.mc2||'∞'}</td>
+    <td style="font-size:10.5px;font-weight:700;color:${r.ec}">${r.ex}</td>
+    <td><span class="tag ${r.l.active?'tag-on':'tag-off'}">${r.l.active?'On':'Off'}</span></td>
+    <td><div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">
+      <button class="toggle ${r.l.active?'on':''}" data-uid="${r.l.uuid}" onclick="togLink(this)"></button>
+      <button class="act-btn act-edit" onclick="showEditMo('${r.l.uuid}')">${editText}</button>
+      <button class="act-btn act-copy" onclick="cpLink('${esc((r.l.vless_links||[]).join(String.fromCharCode(10)))}')">${copyText}</button>
+      <button class="act-btn act-sub" onclick="cpSub('${r.l.uuid}')">${subText}</button>
+      <button class="act-btn act-qr" onclick="showQR('${esc((r.l.vless_links||[])[0]||'')}')">${qrText}</button>
+      <button class="act-btn act-del" onclick="delLink('${r.l.uuid}')">${delText}</button>
+    </div></td>
+  </tr>`).join('');
+
+  mc.innerHTML=rows.map(r=>`<div class="m-card">
+    <div class="m-card-hd">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:11px;color:var(--text3)">#${r.i}</span>
+        <span style="font-weight:600;font-size:14px">${esc(r.l.label)}</span>
+        <span class="tag tag-vless">${protoBadge(r.l.variants)}</span>
+      </div>
+      <button class="toggle ${r.l.active?'on':''}" data-uid="${r.l.uuid}" onclick="togLink(this)"></button>
+    </div>
+    <div class="pill"><span class="pill-used">${fmtB(r.u)}</span><div class="pill-bar"><div class="pill-fill" style="width:${r.pct}%;background:${r.col}"></div></div><span class="pill-lim">${fmtLim(r.lim)}</span></div>
+    <div style="font-size:11.5px;color:${r.ec};margin-top:6px;font-weight:600">⏳ ${r.ex} · ${r.cc}/${r.mc2||'∞'} IPs</div>
+    <div class="m-card-acts">
+      <button class="act-btn act-edit" onclick="showEditMo('${r.l.uuid}')">${editText}</button>
+      <button class="act-btn act-copy" onclick="cpLink('${esc((r.l.vless_links||[]).join(String.fromCharCode(10)))}')">${copyText}</button>
+      <button class="act-btn act-sub" onclick="cpSub('${r.l.uuid}')">${subText}</button>
+      <button class="act-btn act-qr" onclick="showQR('${esc((r.l.vless_links||[])[0]||'')}')">${qrText}</button>
+      <button class="act-btn act-del" onclick="delLink('${r.l.uuid}')">${delText}</button>
+    </div>
+  </div>`).join('');
+  
+  processAlertsAndCharts();
+}
+
+async function togLink(el){
+  const uid=el.dataset.uid;
+  const l=allLinks.find(x=>x.uuid===uid);
+  if(!l)return;
+  const na=!l.active;
+  try{
+    const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:na})});
+    if(!r.ok)throw new Error();
+    l.active=na;filterLinks();loadStats();
+  }catch(e){toast('Failed to toggle',true)}
+}
+
+function showAddMo(){$m('mo-add').classList.add('show')}
+
+// وقتی transport یک بلاک (vless یا trojan) عوض شد، ALPN همون بلاک رو به پیش‌فرضش ببر
+const ALPN_DEFAULTS={
+  'vless-ws':'http/1.1','vless-xhttp-packet-up':'h2,http/1.1','vless-xhttp-stream-up':'h2,http/1.1',
+  'trojan-ws':'http/1.1','trojan-xhttp-packet-up':'h2,http/1.1','trojan-xhttp-stream-up':'h2,http/1.1',
+};
+function syncAlpnDefault(auth,transportId,alpnId){
+  const key=auth+'-'+$m(transportId).value;
+  $m(alpnId).value=ALPN_DEFAULTS[key]||'http/1.1';
+}
+function toggleVariantBox(prefix,auth){
+  $m(prefix+'_'+auth+'_box').style.display=$m(prefix+'_'+auth+'_enabled').checked?'':'none';
+}
+function readVariantFields(prefix,auth){
+  return {
+    [auth+'_enabled']: $m(prefix+'_'+auth+'_enabled').checked,
+    [auth+'_transport']: $m(prefix+'_'+auth+'_transport').value,
+    [auth+'_fingerprint']: $m(prefix+'_'+auth+'_fp').value,
+    [auth+'_alpn']: $m(prefix+'_'+auth+'_alpn').value,
+  };
+}
+function fillVariantFields(prefix,auth,variant){
+  $m(prefix+'_'+auth+'_enabled').checked=!!(variant&&variant.enabled);
+  $m(prefix+'_'+auth+'_transport').value=(variant&&variant.transport)||'ws';
+  $m(prefix+'_'+auth+'_fp').value=(variant&&variant.fingerprint)||'chrome';
+  $m(prefix+'_'+auth+'_alpn').value=(variant&&variant.alpn)||ALPN_DEFAULTS[auth+'-ws'];
+  toggleVariantBox(prefix,auth);
+}
+
+async function createLink(){
+  const label=$m('nl').value.trim()||'New Link';
+  if(!/^[a-zA-Z0-9\-_. ]+$/.test(label)){toast('Only English letters allowed',true);return}
+  if(!$m('n_vless_enabled').checked && !$m('n_trojan_enabled').checked){toast('Enable at least one protocol (VLESS or Trojan)',true);return}
+  const v=parseFloat($m('nv').value)||0;
+  const mc=parseInt($m('nc').value)||0;
+  const days=parseInt($m('nd').value)||0;
+  const body=Object.assign({label,limit_value:v,limit_unit:'GB',max_connections:mc,days_valid:days},readVariantFields('n','vless'),readVariantFields('n','trojan'));
+  try{
+    const r=await fetch('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error();
+    toast('Created');
+    $m('nl').value='';$m('nv').value='';$m('nc').value='';$m('nd').value='';
+    $m('mo-add').classList.remove('show');
+    await loadLinks();await loadStats();
+  }catch(e){toast('Error creating link',true)}
+}
+
+function showEditMo(uid){
+  const l=allLinks.find(x=>x.uuid===uid);
+  if(!l)return;
+  $m('eu').value=uid;
+  $m('en2').value=l.label;
+  $m('el').value=l.limit_bytes>0?(l.limit_bytes/1073741824):'';
+  $m('ec').value=l.max_connections>0?l.max_connections:'';
+  $m('ed').value='';
+  const variants=l.variants||{};
+  fillVariantFields('e','vless',variants.vless);
+  fillVariantFields('e','trojan',variants.trojan);
+  $m('et').textContent=(lang==='fa'?'ویرایش: ':'EDIT: ')+l.label;
+  $m('mo-edit').classList.add('show');
+}
+
+async function saveEdit(){
+  const uid=$m('eu').value;
+  if(!$m('e_vless_enabled').checked && !$m('e_trojan_enabled').checked){toast('Enable at least one protocol (VLESS or Trojan)',true);return}
+  const v=parseFloat($m('el').value)||0;
+  const mc=parseInt($m('ec').value)||0;
+  const days=parseInt($m('ed').value)||0;
+  const body=Object.assign({limit_value:v,limit_unit:'GB',max_connections:mc},readVariantFields('e','vless'),readVariantFields('e','trojan'));
+  if(days>0)body.days_valid=days;
+  try{
+    const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error();
+    toast('Updated');$m('mo-edit').classList.remove('show');await loadLinks();
+  }catch(e){toast('Error updating',true)}
+}
+
+async function resetTraf(){
+  const uid=$m('eu').value;
+  if(!confirm('Reset traffic for this inbound?'))return;
+  try{
+    const r=await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset_usage:true})});
+    if(!r.ok)throw new Error();
+    toast('Traffic reset');await loadLinks();
+  }catch(e){toast('Error resetting',true)}
+}
+
+async function delLink(uid){
+  if(!confirm('Delete this inbound?'))return;
+  try{
+    const r=await fetch('/api/links/'+uid,{method:'DELETE'});
+    if(!r.ok)throw new Error();
+    toast('Deleted');await loadLinks();await loadStats();
+  }catch(e){toast('Error deleting',true)}
+}
+
+function cpLink(txt){
+  if(!txt){toast('No link to copy',true);return}
+  navigator.clipboard.writeText(txt).then(()=>toast('Copied!')).catch(()=>toast('Failed to copy',true));
+}
+
+async function cpSub(uid){
+  try{
+    await navigator.clipboard.writeText('https://'+location.host+'/sub/'+uid);
+    toast('Sub URL copied!');
+  }catch(e){toast('Failed to copy',true)}
+}
+
+function showQR(txt){
+  if(!txt){toast('No QR data',true);return}
+  $m('qr-img').src='https://api.qrserver.com/v1/create-qr-code/?size=280x280&data='+encodeURIComponent(txt);
+  $m('mo-qr').classList.add('show');
+}
+
+function dlQR(){
+  const a=document.createElement('a');
+  a.href=$m('qr-img').src;a.download='vanta-qr.png';a.click();
+}
+
+async function loadSettings(){
+  try{
+    const r=await fetch('/api/settings');
+    if(r.ok){const d=await r.json();
+      $m('tg-token').value=d.telegram_token||'';
+      $m('tg-admin-id').value=d.telegram_admin_id||'';
+      if($m('rw-tg-token'))$m('rw-tg-token').value=d.telegram_token||'';
+      if($m('rw-tg-admin'))$m('rw-tg-admin').value=d.telegram_admin_id||'';
+      if($m('rw-token'))$m('rw-token').value=d.railway_token||'';
+      if($m('rw-tg-notify-conn'))$m('rw-tg-notify-conn').checked=!!d.notify_connections;
+    }
+  }catch(e){}
+}
+
+async function saveSettings(){
+  const tok=$m('tg-token').value.trim();
+  const adm=$m('tg-admin-id').value.trim();
+  try{
+    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm})});
+    if(r.ok)toast('Bot settings saved & restarted');
+    else toast('Failed to save settings',true);
+  }catch(e){toast('Error saving settings',true)}
+}
+
+async function saveAllSettings(){
+  const tok=($m('rw-tg-token')?.value||'').trim();
+  const adm=($m('rw-tg-admin')?.value||'').trim();
+  const rwt=($m('rw-token')?.value||'').trim();
+  const notifyConn=!!($m('rw-tg-notify-conn')?.checked);
+  try{
+    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm,railway_token:rwt,notify_connections:notifyConn})});
+    if(r.ok)toast('All settings saved');
+    else toast('Failed to save settings',true);
+  }catch(e){toast('Error saving settings',true)}
+}
+
+// ── Railway / Permanent Database ──────────────────────────────────────────
+
+async function fetchRailwayProjects(){
+  const token=$m('rw-token').value.trim();
+  if(!token){toast('Enter your Railway token first',true);return}
+  const btn=$m('rw-fetch-btn');
+  const sel=$m('rw-project');
+  btn.disabled=true;btn.textContent='Loading...';
+  sel.disabled=true;sel.innerHTML='<option>Loading...</option>';
+  $m('rw-volume-info').style.display='none';
+  try{
+    const r=await fetch('/api/railway/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    if(!r.ok)throw new Error((await r.json()).detail||'Error');
+    const d=await r.json();
+    sel.innerHTML='<option value="">-- Select a project --</option>'+d.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    sel.disabled=false;
+    toast('Found '+d.projects.length+' project(s)');
+  }catch(e){toast(e.message||'Failed to fetch projects',true);sel.innerHTML='<option value="">Error loading</option>'}
+  finally{btn.disabled=false;btn.textContent=btn.getAttribute('data-'+lang)||'Fetch'}
+}
+
+async function checkRailwayVolume(){
+  const token=$m('rw-token').value.trim();
+  const pid=$m('rw-project').value;
+  if(!token||!pid){toast('Select a project first',true);return}
+  const info=$m('rw-volume-info');
+  const icon=$m('rw-volume-icon');
+  const title=$m('rw-volume-title');
+  const desc=$m('rw-volume-desc');
+  const cbtn=$m('rw-create-btn');
+  info.style.display='';icon.textContent='⏳';title.textContent='Checking...';desc.textContent='';cbtn.style.display='none';
+  try{
+    const r=await fetch('/api/railway/volume-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,project_id:pid})});
+    if(!r.ok)throw new Error((await r.json()).detail||'Error');
+    const d=await r.json();
+    const hasData=d.has_data_volume;
+    if(hasData){
+      icon.textContent='✅';icon.style.color='var(--green)';
+      title.textContent='Volume at /data exists!';
+      const v=d.volumes.find(x=>x.path==='data'||x.path==='/data')||d.volumes[0];
+      desc.textContent=(v?'ID: '+v.id+' | Name: '+v.name+' | State: '+v.state:'');
+      cbtn.style.display='none';
+      $m('rdb-status').textContent='✅ Active';$m('rdb-status').style.color='var(--green)';
+    }else{
+      // No volume found - create it automatically, no manual click needed.
+      icon.textContent='⏳';title.textContent='No volume found, creating one automatically...';desc.textContent='';
+      $m('rdb-status').textContent='⏳ Creating...';$m('rdb-status').style.color='var(--gold)';
+      await createRailwayVolume(true);
+    }
+  }catch(e){toast(e.message||'Failed to check',true);info.style.display='none'}
+}
+
+async function createRailwayVolume(silent){
+  const token=$m('rw-token').value.trim();
+  const pid=$m('rw-project').value;
+  if(!token||!pid){toast('Select a project first',true);return}
+  const icon=$m('rw-volume-icon');
+  const title=$m('rw-volume-title');
+  const desc=$m('rw-volume-desc');
+  const cbtn=$m('rw-create-btn');
+  cbtn.disabled=true;cbtn.textContent='Creating...';
+  try{
+    const r=await fetch('/api/railway/create-volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,project_id:pid})});
+    if(!r.ok)throw new Error((await r.json()).detail||'Error');
+    if(!silent)toast('Volume created successfully!');
+    else toast('/data volume created automatically');
+    icon.textContent='✅';icon.style.color='var(--green)';
+    title.textContent='Volume at /data created!';
+    desc.textContent='It may take a few seconds to finish provisioning.';
+    cbtn.style.display='none';
+    $m('rdb-status').textContent='✅ Active';$m('rdb-status').style.color='var(--green)';
+  }catch(e){
+    icon.textContent='❌';icon.style.color='var(--red)';
+    title.textContent='No volume at /data found';
+    desc.textContent=e.message||'Failed to auto-create volume. Click below to retry.';
+    cbtn.style.display='';
+    $m('rdb-status').textContent='❌ Missing';$m('rdb-status').style.color='var(--red)';
+    toast(e.message||'Failed to create volume',true);
+  }
+  finally{cbtn.disabled=false;cbtn.textContent=cbtn.getAttribute('data-'+lang)||'Create Volume'}
+}
+
+// Auto-check volume when project selection changes
+document.addEventListener('change',function(e){
+  if(e.target.id==='rw-project'&&e.target.value){
+    checkRailwayVolume();
+  }
+});
+
+async function loadStats(){
+  try{
+    const r=await fetch('/stats');
+    if(r.status===401){showLogin();return}
+    if(!r.ok)throw new Error();
+    sData=await r.json();
+    $m('sv-traffic').innerHTML=(sData.total_traffic_mb||0)+'<span class="stat-unit"> MB</span>';
+    $m('sv-links').textContent=sData.links_count||0;
+    $m('sv-uptime').textContent=sData.uptime||'-';
+    $m('sv-domain').textContent=sData.domain||'-';
+    $m('nb').textContent=sData.links_count||0;
+    $m('last-up').textContent='Updated '+new Date().toLocaleTimeString();
+    if($m('t-tr'))$m('t-tr').textContent=(sData.total_traffic_mb||0)+' MB';
+    if($m('t-rq'))$m('t-rq').textContent=(sData.total_requests||0).toLocaleString();
+    if($m('t-up'))$m('t-up').textContent=sData.uptime||'-';
+    if(sData.cpu_percent!==undefined){
+      const c=sData.cpu_percent;
+      const cc=c>80?'var(--red)':c>50?'var(--yellow)':'var(--gold)';
+      $m('cpu-v').textContent=c.toFixed(1)+'%';$m('cpu-v').style.color=cc;
+      $m('cpu-b').style.width=c+'%';$m('cpu-b').style.background=cc;
+    }
+    if(sData.memory_percent!==undefined){
+      const m=sData.memory_percent;
+      const mc=m>80?'var(--red)':m>50?'var(--yellow)':'var(--green)';
+      $m('mem-v').textContent=m.toFixed(1)+'%';$m('mem-v').style.color=mc;
+      $m('mem-b').style.width=m+'%';$m('mem-b').style.background=mc;
+    }
+    updChart();
+  }catch(e){}
+}
+
+async function loadLinks(){
+  try{
+    const r=await fetch('/api/links');
+    if(r.status===401){showLogin();return}
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    allLinks=d.links||[];filterLinks();
+  }catch(e){}
+}
+
+async function chgPw(){
+  const cur=$m('cpw').value;const nw=$m('npw').value;
+  if(!cur||!nw){toast('Fill all fields',true);return}
+  if(nw.length<4){toast('Password must be at least 4 characters',true);return}
+  try{
+    const r=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:nw})});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||'Error')}
+    toast('Password updated');$m('cpw').value='';$m('npw').value='';
+  }catch(e){toast(e.message,true)}
+}
+
+function initChart(){
+  const ctx=$m('tc');
+  if(!ctx||tChart)return;
+  tChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:[],datasets:[{label:'MB',data:[],backgroundColor:'rgba(255,215,0,0.4)',borderColor:'#FFD700',borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'rgba(255,215,0,0.35)',font:{size:10}}},
+        y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'rgba(255,215,0,0.35)',font:{size:10},callback:v=>v+' MB'},beginAtZero:true}
+      }
+    }
+  });
+
+  const ctx2=$m('inbound-chart');
+  if(ctx2&&!iChart){
+    iChart=new Chart(ctx2,{
+      type:'doughnut',
+      data:{labels:[],datasets:[{data:[],
+        backgroundColor:[],
+        borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'right',labels:{color:'rgba(255,255,255,0.6)',font:{size:10}}}}}
+    });
+  }
+  updChartColors();
+}
+
+function updChartColors(){
+  if(!tChart)return;
+  const col=theme==='light'?'rgba(0,0,0,0.4)':'rgba(255,215,0,0.35)';
+  const gridCol=theme==='light'?'rgba(0,0,0,0.06)':'rgba(255,215,0,0.06)';
+  tChart.options.scales.x.ticks.color=col;
+  tChart.options.scales.y.ticks.color=col;
+  tChart.options.scales.y.grid.color=gridCol;
+  tChart.update();
+}
+
+function updChart(){
+  if(!tChart||!sData.hourly_traffic)return;
+  const entries=Object.entries(sData.hourly_traffic).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
+  tChart.data.labels=entries.map(x=>{const p=x[0].split(' ');return p.length>1?p[1]:p[0]});
+  tChart.data.datasets[0].data=entries.map(x=>Math.round(x[1]/1048576));
+  tChart.update();
+}
+
+async function loadAddrs(){
+  try{
+    const r=await fetch('/api/addresses');
+    if(!r.ok)throw new Error();
+    const d=await r.json();allAddrs=d.addresses||[];renderAddrs();
+  }catch(e){}
+}
+
+function renderAddrs(){
+  const el=$m('addr-list');
+  if(!el)return;
+  if(!allAddrs||!allAddrs.length){el.innerHTML='<div style="color:var(--text3);font-size:12px">No addresses added</div>';return}
+  el.innerHTML=allAddrs.map((a,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="color:var(--gold);font-size:16px">🌐</span>
+      <div><div style="font-size:14px;font-weight:600">${esc(a)}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">Address #${i+1}</div></div>
+    </div>
+    <button class="act-btn act-del" onclick="delAddr(${i})">${tr('del')}</button>
+  </div>`).join('');
+}
+
+function showAddAddrMo(){$m('na').value='';$m('mo-addr').classList.add('show')}
+
+// ── Notifications ────────────────────────────────────────────────────────
+const NOTIF_ICONS = {update:'🔔',quota:'⚠️',expiry:'⏰',info:'ℹ️'};
+
+async function loadNotifs(){
+  try{
+    const r=await fetch('/api/notifications');
+    if(r.status===401)return;
+    if(!r.ok)return;
+    const d=await r.json();
+    renderNotifs(d.notifications||[]);
+  }catch(e){}
+}
+
+function renderNotifs(notifs){
+  const el=$m('notif-list');
+  if(!el)return;
+  if(!notifs||!notifs.length){
+    el.innerHTML='<div class="empty" style="padding:32px">'+(lang==='fa'?'هیچ اعلانی وجود ندارد':'No notifications')+'</div>';
+    return;
+  }
+  el.innerHTML=notifs.map(n=>{
+    const icon=NOTIF_ICONS[n.type]||'ℹ️';
+    const cls=n.seen?'':'unseen';
+    const time=new Date(n.created_at).toLocaleString();
+    const linkHtml=n.link?`<a href="${esc(n.link)}" target="_blank" class="notif-link">${tr('gh')} ↗</a>`:'';
+    return `<div class="notif-item ${cls}" onclick="markSeen(${n.id})">
+      <div class="notif-icon ${n.type}">${icon}</div>
+      <div class="notif-body">
+        <div class="notif-title">${esc(n.title)}</div>
+        <div class="notif-msg">${esc(n.message)}</div>
+        <div class="notif-time">${time}</div>
+        ${linkHtml}
+      </div>
+      ${n.seen?'':'<div class="notif-dot"></div>'}
+    </div>`;
   }).join('');
 }
 
-async function togLink(el) {
-  const uid = el.dataset.uid;
-  const l = allLinks.find(x => x.uuid === uid);
-  if (!l) return;
-  const na = !l.active;
-  try {
-    await fetch('/api/links/' + uid, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: na })
-    });
-    l.active = na;
-    renderLinks();
-    loadStats();
-  } catch(e) { toast('Failed'); }
+async function markSeen(id){
+  await fetch('/api/notifications/'+id+'/seen',{method:'POST'});
+  await loadNotifs();
+  await updateNotifBadge();
 }
 
-function showAddMo() { $m('mo-add').classList.add('show'); }
-
-async function createLink() {
-  const label = $m('nl').value.trim() || 'New Link';
-  const v = parseFloat($m('nv').value) || 0;
-  const days = parseInt($m('nd').value) || 0;
-  try {
-    const r = await fetch('/api/links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, limit_value: v, limit_unit: 'GB', days_valid: days })
-    });
-    if (!r.ok) throw new Error();
-    toast('Created!');
-    $m('mo-add').classList.remove('show');
-    $m('nl').value = '';
-    $m('nv').value = '';
-    $m('nd').value = '';
-    await loadLinks();
-    await loadStats();
-  } catch(e) { toast('Error', true); }
+async function markAllSeen(){
+  await fetch('/api/notifications/seen-all',{method:'POST'});
+  await loadNotifs();
+  await updateNotifBadge();
 }
 
-async function delLink(uid) {
-  if (!confirm('Delete?')) return;
-  try {
-    await fetch('/api/links/' + uid, { method: 'DELETE' });
-    toast('Deleted');
-    await loadLinks();
-    await loadStats();
-  } catch(e) { toast('Error', true); }
+async function clearNotifs(){
+  if(!confirm(lang==='fa'?'حذف همه اعلانات؟':'Clear all notifications?'))return;
+  await fetch('/api/notifications',{method:'DELETE'});
+  await loadNotifs();
+  await updateNotifBadge();
 }
 
-function cpLink(txt) {
-  if (!txt) { toast('No link', true); return; }
-  navigator.clipboard.writeText(txt).then(() => toast('Copied!')).catch(() => toast('Failed', true));
-}
-
-async function loadAddrs() {
-  try {
-    const r = await fetch('/api/addresses');
-    if (!r.ok) return;
-    const d = await r.json();
-    allAddrs = d.addresses || [];
-    renderAddrs();
-  } catch(e) {}
-}
-
-function renderAddrs() {
-  const el = $m('addr-list');
-  if (!el) return;
-  if (!allAddrs || !allAddrs.length) {
-    el.innerHTML = '<div style="color:var(--text3)">No addresses</div>';
-    return;
-  }
-  el.innerHTML = allAddrs.map((a, i) => `
-    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
-      <span>${a}</span>
-      <button class="act-btn act-del" onclick="delAddr(${i})">Delete</button>
-    </div>
-  `).join('');
-}
-
-function showAddAddrMo() {
-  $m('na').value = '';
-  $m('mo-addr').classList.add('show');
-}
-
-async function addAddrs() {
-  const lines = ($m('na').value || '').split('\n').map(l => l.trim()).filter(l => l);
-  let ok = 0;
-  for (const a of lines) {
-    try {
-      const r = await fetch('/api/addresses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: a })
-      });
-      if (r.ok) ok++;
-    } catch(e) {}
-  }
-  if (ok) {
-    toast('Added ' + ok);
-    $m('mo-addr').classList.remove('show');
-    await loadAddrs();
-  }
-}
-
-async function delAddr(i) {
-  if (!confirm('Delete?')) return;
-  try {
-    await fetch('/api/addresses/' + i, { method: 'DELETE' });
-    toast('Deleted');
-    await loadAddrs();
-  } catch(e) { toast('Error', true); }
-}
-
-async function delAllAddrs() {
-  if (!allAddrs || !allAddrs.length) { toast('Empty', true); return; }
-  if (!confirm('Delete ALL?')) return;
-  try {
-    await fetch('/api/addresses', { method: 'DELETE' });
-    toast('All deleted');
-    await loadAddrs();
-  } catch(e) { toast('Error', true); }
-}
-
-async function importAddrs(source) {
-  try {
-    const r = await fetch('/api/addresses/import/' + source, { method: 'POST' });
-    if (!r.ok) throw new Error();
-    const d = await r.json();
-    toast((d.added || 0) + ' added');
-    await loadAddrs();
-  } catch(e) { toast('Import failed', true); }
-}
-
-async function chgPw() {
-  const cur = $m('cpw').value, nw = $m('npw').value;
-  if (!cur || !nw) { toast('Fill all fields', true); return; }
-  try {
-    const r = await fetch('/api/change-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ current_password: cur, new_password: nw })
-    });
-    if (!r.ok) throw new Error();
-    toast('Password updated');
-    $m('cpw').value = '';
-    $m('npw').value = '';
-  } catch(e) { toast('Error', true); }
-}
-
-async function saveSettings() {
-  const tok = $m('tg-token').value.trim();
-  const adm = $m('tg-admin-id').value.trim();
-  try {
-    const r = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ telegram_token: tok, telegram_admin_id: adm })
-    });
-    if (r.ok) toast('Saved');
-    else toast('Failed', true);
-  } catch(e) { toast('Error', true); }
-}
-
-function connectLogsWS() {
-  if (logsWS) try { logsWS.close(); } catch(e) {}
-  const token = document.cookie.split('; ').find(r => r.startsWith('ren_session='))?.split('=')[1];
-  if (!token) return;
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  logsWS = new WebSocket(`${protocol}//${location.host}/ws/live-logs?token=${token}`);
-  logsWS.onmessage = e => {
-    $m('log-container').textContent += e.data + '\n';
-    $m('log-container').scrollTop = $m('log-container').scrollHeight;
-  };
-  logsWS.onerror = () => { $m('log-container').textContent = 'Connection error...'; };
-  logsWS.onclose = () => setTimeout(connectLogsWS, 5000);
-}
-
-async function doLogout() {
-  await fetch('/api/logout', { method: 'POST' });
-  location.reload();
-}
-
-function checkAuth() {
-  fetch('/api/me').then(r => r.json()).then(d => {
-    if (d.authenticated) {
-      isAuth = true;
-      loadStats();
-      loadLinks();
-      loadAddrs();
-      connectLogsWS();
+async function updateNotifBadge(){
+  try{
+    const r=await fetch('/api/notifications/count');
+    if(!r.ok)return;
+    const d=await r.json();
+    const badge=$m('notif-badge');
+    const topBadge=$m('top-notif-badge');
+    if(badge){
+      if(d.count>0){badge.style.display='';badge.textContent=d.count}
+      else{badge.style.display='none'}
     }
-  }).catch(() => {});
+    if(topBadge){
+      if(d.count>0){topBadge.style.display='';topBadge.textContent=d.count}
+      else{topBadge.style.display='none'}
+    }
+  }catch(e){}
 }
 
+async function addAddrs(){
+  const lines=($m('na').value||'').trim().split('\n').map(l=>l.trim()).filter(l=>l);
+  let ok=0,fail=0;
+  for(const a of lines){
+    if(!/^[a-zA-Z0-9\-_. ]+$/.test(a)){fail++;continue}
+    try{
+      const r=await fetch('/api/addresses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address:a})});
+      if(r.ok)ok++;else fail++;
+    }catch(e){fail++}
+  }
+  if(ok)toast('Added '+ok);
+  if(fail)toast(fail+' failed',true);
+  if(ok){$m('mo-addr').classList.remove('show');await loadAddrs()}
+}
+
+async function delAddr(i){
+  if(!confirm('Delete this address?'))return;
+  try{
+    const r=await fetch('/api/addresses/'+i,{method:'DELETE'});
+    if(!r.ok)throw new Error();
+    toast('Deleted');await loadAddrs();
+  }catch(e){toast('Error deleting',true)}
+}
+
+async function delAllAddrs(){
+  if(!allAddrs||!allAddrs.length){toast('No addresses to delete',true);return}
+  if(!confirm('Delete ALL clean IP addresses?'))return;
+  try{
+    const r=await fetch('/api/addresses',{method:'DELETE'});
+    if(!r.ok)throw new Error();
+    toast('All addresses deleted');await loadAddrs();
+  }catch(e){toast('Error deleting',true)}
+}
+
+// همه‌ی آی‌پی‌های railway_ips.txt رو یکجا (یک درخواست، بدون تاخیر
+// به‌ازای هر آی‌پی) به لیست Clean IP اضافه می‌کنه.
+async function importAddrs(source){
+  try{
+    const r=await fetch('/api/addresses/import/'+source,{method:'POST'});
+    const d=await r.json().catch(()=>null);
+    if(!r.ok){toast((d&&d.detail)||'Error importing',true);return}
+    toast((d.added||0)+' address(es) added, '+((d.total_in_file||0)-(d.added||0))+' already existed');
+    await loadAddrs();
+  }catch(e){toast('Error importing',true)}
+}
+
+setTheme(theme);
+setLang(lang);
 checkAuth();
-setInterval(loadStats, 10000);
-$m('srch').addEventListener('input', renderLinks);
+let statsInterval=null;
+function startPolling(){
+  if(statsInterval)clearInterval(statsInterval);
+  statsInterval=setInterval(()=>{if(isAuthenticated){loadStats();loadLinks();updateNotifBadge()}},12000);
+}
+startPolling();
+
+// Panel update notifications intentionally disabled.
 </script>
 </body>
 </html>"""
