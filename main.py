@@ -2198,6 +2198,9 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         /* Header */
         .header{{text-align:center;padding:24px 0 20px}}
         .header-logo{{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}}
+        .brand-mark{{width:28px;height:28px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;
+            font-size:13px;font-weight:900;color:#fff;background:linear-gradient(135deg,#7c3aed,#c084fc);
+            border:1px solid rgba(216,180,254,.55);box-shadow:0 0 22px rgba(168,85,247,.32);letter-spacing:0}}
         .header-title{{font-size:22px;font-weight:900;letter-spacing:3px;
             background:linear-gradient(135deg,#fff,var(--gold));
             -webkit-background-clip:text;-webkit-text-fill-color:transparent}}
@@ -2251,6 +2254,16 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;
             box-shadow:0 0 20px rgba(255,215,0,0.25);transition:all .2s}}
         .copy-sub-btn:hover{{filter:brightness(1.1);box-shadow:0 0 30px rgba(255,215,0,0.4)}}
+        .sub-actions-card{{padding:20px!important}}
+        .action-kicker{{font-size:9px;font-weight:900;letter-spacing:2.4px;color:#c084fc;text-transform:uppercase;margin-bottom:10px}}
+        .sub-action-grid{{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}}
+        .sub-action-btn{{min-height:48px;border-radius:12px;border:1px solid rgba(168,85,247,.24);
+            background:rgba(124,58,237,.08);color:#e9d5ff;font-family:inherit;font-size:12px;font-weight:800;
+            cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s}}
+        .sub-action-btn:hover{{transform:translateY(-1px);border-color:rgba(192,132,252,.52);background:rgba(168,85,247,.15);box-shadow:0 10px 24px rgba(124,58,237,.15)}}
+        .sub-action-btn.primary{{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border-color:rgba(216,180,254,.48);box-shadow:0 8px 24px rgba(124,58,237,.22)}}
+        .sub-action-icon{{font-size:17px;line-height:1}}
+        .qr-card .sub-link-display{{color:#ddd6fe;background:rgba(124,58,237,.08);border-color:rgba(168,85,247,.24)}}
 
         /* Platform chips */
         .section-label{{font-size:9px;font-weight:800;letter-spacing:2px;color:var(--text3);
@@ -2482,13 +2495,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     <!-- Header -->
     <div class="header">
         <div class="header-logo">
-            <svg width="28" height="24" viewBox="0 0 84 68" fill="none">
-                <ellipse cx="42" cy="52" rx="40" ry="11" fill="#C8900A" opacity=".85"/>
-                <ellipse cx="42" cy="52" rx="40" ry="11" fill="none" stroke="#FFD700" stroke-width="1.4" opacity=".6"/>
-                <path d="M19 50 Q21 22 42 17 Q63 22 65 50" fill="#4a3a00" stroke="#FFD700" stroke-width="1.4"/>
-                <ellipse cx="42" cy="17" rx="23" ry="5.5" fill="#C8900A" stroke="#FFD700" stroke-width="1"/>
-                <path d="M20 45 Q21.5 41.5 42 39.5 Q62.5 41.5 64 45" fill="none" stroke="#CC2200" stroke-width="4.5" stroke-linecap="round" opacity=".92"/>
-            </svg>
+            <span class="brand-mark" aria-hidden="true">V</span>
             <span class="header-title">VANTA</span>
         </div>
         <div class="header-sub">{link['label']} · Connection Status</div>
@@ -2531,18 +2538,20 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </div>
     </div>
 
-    <!-- QR Code Card -->
-    <div class="qr-card">
-        <div class="qr-label">Scan to Add</div>
-        <div class="qr-wrap">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&color=000000&bgcolor=ffffff&data={quote(sub_url)}" alt="QR">
-        </div>
-        <div class="qr-label">Subscription Link</div>
+    <!-- Subscription Actions -->
+    <div class="qr-card sub-actions-card">
+        <div class="action-kicker">SUBSCRIPTION</div>
         <div class="sub-link-display" onclick="copySub()">{get_domain()}/sub/{uid}</div>
-        <button class="copy-sub-btn" onclick="copySub()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            Copy Subscription Link
-        </button>
+        <div class="sub-action-grid">
+            <button class="sub-action-btn primary" onclick="showSubQR()">
+                <span class="sub-action-icon">▦</span>
+                <span>نمایش QR کد</span>
+            </button>
+            <button class="sub-action-btn" onclick="copySub()">
+                <span class="sub-action-icon">⧉</span>
+                <span>کپی لینک ساب</span>
+            </button>
+        </div>
     </div>
 
     <!-- Easy Import Section -->
@@ -2565,7 +2574,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             <div class="configs-title">CONFIGS</div>
             <div class="configs-count" id="configs-count">0 configs</div>
         </div>
-        <button class="ping-btn" id="ping-all-btn" onclick="pingAll()">⚡ Ping test all</button>
         <div id="config-list"></div>
     </div>
 
@@ -2597,7 +2605,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div class="mo-title">QR CODE</div>
         <img id="qr-modal-img" src="" alt="QR">
         <div id="qr-modal-name" style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:8px"></div>
-        <button onclick="downloadQR()" style="width:100%;padding:10px;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFC200);border:none;color:#000;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Download QR</button>
+        <button onclick="downloadQR()" style="width:100%;padding:10px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#c084fc);border:1px solid rgba(216,180,254,.42);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;box-shadow:0 0 22px rgba(168,85,247,.25)">Download QR</button>
     </div>
 </div>
 
@@ -2787,7 +2795,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
                     <div class="config-icon">🌐</div>
                     <div class="config-info">
                         <div class="config-name">${{remark}}</div>
-                        <div class="config-type">${{configBadge(cfg)}} <span class="ping-badge" id="ping-badge-${{i}}">-</span></div>
+                        <div class="config-type">${{configBadge(cfg)}}</div>
                     </div>
                     <div class="config-actions">
                         <button class="btn-copy" onclick="copyConfig('${{cfg.replace(/'/g,"\\'")}}')" title="Copy">Copy</button>
@@ -2801,6 +2809,13 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     function copySub() {{
         safeCopy(subUrl);
         showToast('Subscription link copied!');
+    }}
+
+    function showSubQR() {{
+        const img = document.getElementById('qr-modal-img');
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&color=000000&bgcolor=ffffff&data=' + encodeURIComponent(subUrl);
+        document.getElementById('qr-modal-name').textContent = 'Subscription QR';
+        document.getElementById('qr-modal').classList.add('show');
     }}
 
     function copyConfig(txt) {{
@@ -4029,6 +4044,41 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
 @media(max-width:900px){.sidebar{width:198px!important}.main{margin-left:198px!important;padding-left:22px!important;padding-right:22px!important}}
 @media(max-width:760px){.sidebar{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;height:78px!important;min-height:78px!important;padding:7px 8px!important;display:flex!important;flex-direction:row!important;align-items:stretch!important;gap:5px!important;border-right:0!important;border-top:1px solid rgba(168,85,247,.24)!important;background:rgba(11,4,20,.97)!important;box-shadow:0 -14px 34px rgba(0,0,0,.40)!important}.sidebar::before{left:0!important;right:0!important;top:0!important;bottom:auto!important;width:auto!important;height:2px!important}.sb-brand{display:none!important}.sb-nav{flex:1!important;display:flex!important;flex-direction:row!important;align-items:stretch!important;justify-content:space-around!important;gap:4px!important;padding:0!important;overflow:visible!important}.nav-item{height:64px!important;min-width:0!important;flex:1!important;padding:7px 4px!important;border-radius:12px!important;flex-direction:column!important;justify-content:center!important;gap:4px!important}.nav-item:hover{transform:none!important}.nav-item.active::after{left:50%!important;right:auto!important;top:auto!important;bottom:4px!important;width:26px!important;height:3px!important;transform:translateX(-50%)!important}.nav-label{font-size:9px!important}.nav-icon{width:19px!important;height:19px!important}.sb-bottom{display:flex!important;flex-direction:row!important;align-items:center!important;gap:5px!important;padding:0!important;margin:0!important;border:0!important}.sb-bottom .top-actions{gap:4px!important}.top-status{display:none!important}.top-icon-btn,.top-user{width:36px!important;height:36px!important;border-radius:10px!important}.legacy-controls{display:none!important}.main{margin-left:0!important;margin-right:0!important;padding:24px 14px 98px!important}.page-title{font-size:22px!important}}
 @media(max-width:460px){.top-icon-btn,.top-user{width:32px!important;height:32px!important}.nav-label{font-size:8px!important}.nav-icon{width:18px!important;height:18px!important}.main{padding-left:10px!important;padding-right:10px!important}}
+
+/* ===== MOBILE: KEEP THE MAIN NAV ON TOP ===== */
+@media(max-width:760px){
+  .sidebar{
+    position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
+    width:100%!important;height:70px!important;min-height:70px!important;padding:0 10px!important;
+    display:flex!important;flex-direction:row!important;align-items:center!important;gap:8px!important;
+    border-right:0!important;border-left:0!important;border-top:0!important;
+    border-bottom:1px solid rgba(168,85,247,.24)!important;
+    background:rgba(11,4,20,.97)!important;
+    box-shadow:0 14px 34px rgba(0,0,0,.38)!important;
+  }
+  .sidebar::before{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:auto!important;height:2px!important}
+  .sb-brand{display:flex!important;width:92px!important;min-width:92px!important;height:46px!important;padding:0 8px!important}
+  .sb-title{font-size:20px!important}
+  .sb-nav{flex:1!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:3px!important;padding:0!important;overflow-x:auto!important;overflow-y:hidden!important}
+  .nav-item{height:44px!important;min-width:76px!important;flex:0 0 auto!important;padding:0 8px!important;border-radius:11px!important;flex-direction:row!important;gap:6px!important}
+  .nav-item.active::after{left:12px!important;right:12px!important;top:auto!important;bottom:-1px!important;width:auto!important;height:2px!important;transform:none!important}
+  .nav-label{display:inline!important;font-size:9px!important}
+  .nav-icon{width:16px!important;height:16px!important}
+  .sb-bottom{display:flex!important;flex-direction:row!important;align-items:center!important;gap:4px!important;margin-left:auto!important}
+  .sb-bottom .top-actions{gap:4px!important}
+  .top-status{display:none!important}
+  .top-icon-btn,.top-user{width:34px!important;height:34px!important;border-radius:10px!important}
+  .main{margin-left:0!important;margin-right:0!important;padding:88px 12px 30px!important}
+}
+@media(max-width:460px){
+  .sb-brand{width:70px!important;min-width:70px!important}
+  .sb-title{font-size:17px!important}
+  .nav-item{min-width:58px!important;padding:0 6px!important}
+  .nav-label{font-size:8px!important}
+  .nav-icon{width:15px!important;height:15px!important}
+  .sb-bottom{display:none!important}
+  .main{padding-top:84px!important}
+}
 </style>
 </head>
 <body>
