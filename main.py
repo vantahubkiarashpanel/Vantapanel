@@ -2508,7 +2508,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     <div class="sub-hero-head">
         <div>
             <div class="sub-eyebrow"><span class="sub-live-dot"></span> VANTA</div>
-            <div class="sub-brandline"><span class="header-title">VANTA</span></div>
             <div class="header-sub">VANTA · {link['label']} · private access portal</div>
         </div>
         <div class="hero-chip">{status_text}</div>
