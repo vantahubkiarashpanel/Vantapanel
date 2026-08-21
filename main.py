@@ -1,7 +1,3 @@
-# ============================================
-# VANTA PANEL - CUSTOM MENU VERSION
-# ============================================
-
 import asyncio
 import json
 import os
@@ -57,16 +53,10 @@ logging.getLogger("uvicorn.access").addHandler(q_handler)
 
 app = FastAPI(title="VANTA Panel", docs_url=None, redoc_url=None)
 
-# Bump this on every release so the dashboard can notify already-open sessions
-# that a new version is available / was just applied.
 PANEL_VERSION = "1.1.0"
-
-# GitHub repo checked for update notifications
 GITHUB_REPO = "vantahubkiarashpanel/Vantapanel"
 
 async def check_github_latest(force: bool = False) -> dict:
-    """Fetches the latest release tag from GitHub, caches in SQLite.
-    Only actually calls the API if force=True or no cached data exists."""
     conn = get_db()
     try:
         cur = conn.execute("SELECT latest_tag, latest_url, checked_at FROM github_cache WHERE id = 1")
@@ -115,7 +105,6 @@ async def check_github_latest(force: bool = False) -> dict:
     finally:
         conn.close()
 
-    # Create notification if a new version is detected
     if new_tag and new_tag != cached_tag and cached_tag:
         await create_notification(
             type="update",
@@ -126,19 +115,14 @@ async def check_github_latest(force: bool = False) -> dict:
 
     return {"tag": new_tag, "url": new_url, "checked_at": now}
 
-
 async def github_check_loop():
-    """Background task: check GitHub every 60 seconds for new releases."""
-    await asyncio.sleep(10)  # initial delay
+    await asyncio.sleep(10)
     while True:
         try:
             await check_github_latest(force=True)
         except Exception as e:
             logger.warning(f"GitHub periodic check error: {e}")
         await asyncio.sleep(60)
-
-
-# ── Notifications ────────────────────────────────────────────────────────
 
 async def create_notification(type: str, title: str, message: str, link: str | None = None):
     conn = get_db()
@@ -174,15 +158,6 @@ async def get_notifications(limit: int = 50) -> list:
         conn.close()
 
 def _get_or_create_secret() -> str:
-    """Returns a stable secret key across restarts.
-
-    Previously this fell back to secrets.token_urlsafe(32) on every process
-    start when SECRET_KEY wasn't set, which changed the key each restart.
-    Since password hashes are salted with this secret, that made the stored
-    admin password hash (and every changed password) unverifiable after any
-    restart, effectively locking everyone out. We now persist a generated
-    secret to a local file so it stays constant across restarts.
-    """
     env_secret = os.environ.get("SECRET_KEY")
     if env_secret:
         return env_secret
@@ -236,13 +211,9 @@ notified_uids = set()
 SESSION_COOKIE = "ren_session"
 SESSION_TTL = 60 * 60 * 24 * 7
 UNLIMITED_QUOTA_BYTES = 53687091200000
-# پورت همیشه ثابت روی 443 است — دیگه قابل تغییر توسط کاربر نیست
 DEFAULT_PORT = 443
 MIN_PORT, MAX_PORT = 1, 65535
 
-# نوع پروتکل (auth scheme) و ترابرد به‌صورت دو بُعد جدا از هم هستن؛ کاربر برای هر
-# کانفیگ هرکدوم رو مستقل از اون یکی انتخاب می‌کنه (مثلاً Trojan + XHTTP stream-up
-# یا VLESS + WebSocket و ...). مقدار ذخیره‌شده‌ی نهایی همیشه "{auth}-{transport}"ه.
 AUTH_TYPES = ("vless", "trojan")
 DEFAULT_AUTH = "vless"
 
@@ -253,44 +224,29 @@ PROTOCOLS = tuple(f"{a}-{t}" for a in AUTH_TYPES for t in TRANSPORTS)
 DEFAULT_PROTOCOL = f"{DEFAULT_AUTH}-{DEFAULT_TRANSPORT}"
 
 def split_protocol(protocol: str) -> tuple[str, str]:
-    """مقدار ذخیره‌شده‌ی protocol ("auth-transport") رو به دو بخش auth/transport می‌شکونه."""
     protocol = normalize_protocol(protocol)
     auth, transport = protocol.split("-", 1)
     return auth, transport
 
 def normalize_protocol(value: str | None) -> str:
-    """قدیم‌ترها مقدار protocol فقط ترابرد بود (مثلاً 'xhttp-packet-up' بدون
-    پیشوند auth) چون auth همیشه vless بود. این تابع مقادیر قدیمی رو به فرمت
-    جدید 'auth-transport' تبدیل می‌کنه تا کانفیگ‌های قبلی خراب نشن."""
     value = (value or "").strip().lower()
     if value in PROTOCOLS:
         return value
-    if value in TRANSPORTS:  # legacy value با auth ضمنی vless
+    if value in TRANSPORTS:
         return f"vless-{value}"
     return DEFAULT_PROTOCOL
 
-# Fingerprint (uTLS) های قابل انتخاب برای هر کانفیگ — مستقل برای هر پروتکل انتخاب می‌شه
 FINGERPRINTS = ("chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random", "randomized")
 DEFAULT_FINGERPRINT = "chrome"
 
-# لیست بسته‌ی ALPNهای قابل‌انتخاب (دیگه فیلد آزاد نیست) — مستقل برای هر پروتکل انتخاب می‌شه
 ALPN_OPTIONS = ("h3", "h2", "http/1.1", "h3,h2,http/1.1", "h3,h2", "h2,http/1.1")
 
-# پیش‌فرض ALPN بر اساس نوع ترابرد، وقتی کاربر مقدار انتخاب نکرده (auth روی این تاثیری نداره)
 DEFAULT_ALPN_BY_PROTOCOL = {}
 for _auth in AUTH_TYPES:
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-ws"] = "http/1.1"
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-xhttp-packet-up"] = "h2,http/1.1"
     DEFAULT_ALPN_BY_PROTOCOL[f"{_auth}-xhttp-stream-up"] = "h2,http/1.1"
 del _auth
-
-# ═══════════════════ ساختار «variants» — هر لینک می‌تونه هم‌زمان هم VLESS هم Trojan ═══════════════════
-# هر لینک به‌جای یک protocol واحد، یک variant مستقل برای هر auth type داره:
-#   link["variants"] = {
-#       "vless":  {"enabled": bool, "transport": ..., "fingerprint": ..., "alpn": ...},
-#       "trojan": {"enabled": bool, "transport": ..., "fingerprint": ..., "alpn": ...},
-#   }
-# حداقل یکی از دو تا باید enabled باشه.
 
 def default_variants() -> dict:
     return {
@@ -315,11 +271,10 @@ def sanitize_variants(variants: dict | None) -> dict:
     variants = variants or {}
     result = {auth: sanitize_variant(variants.get(auth), auth) for auth in AUTH_TYPES}
     if not any(result[a]["enabled"] for a in AUTH_TYPES):
-        result["vless"]["enabled"] = True  # حداقل یکی باید فعال بمونه
+        result["vless"]["enabled"] = True
     return result
 
 def variants_from_legacy(protocol: str, fingerprint: str, alpn: str) -> dict:
-    """کانفیگ‌های قدیمی که فقط یک protocol/fingerprint/alpn ستونی داشتن رو به فرمت جدید تبدیل می‌کنه."""
     auth, transport = split_protocol(protocol)
     variants = default_variants()
     for a in AUTH_TYPES:
@@ -332,7 +287,6 @@ def variants_from_legacy(protocol: str, fingerprint: str, alpn: str) -> dict:
     return variants
 
 def variants_to_legacy(variants: dict) -> tuple[str, str, str]:
-    """برای پرشدن ستون‌های قدیمی protocol/fingerprint/alpn (صرفاً برای سازگاری با ابزارهای بیرونی)."""
     for auth in AUTH_TYPES:
         v = (variants or {}).get(auth, {})
         if v.get("enabled"):
@@ -340,9 +294,6 @@ def variants_to_legacy(variants: dict) -> tuple[str, str, str]:
     return DEFAULT_PROTOCOL, DEFAULT_FINGERPRINT, ""
 
 def variants_from_body(body: dict, base: dict | None = None) -> dict:
-    """بدنه‌ی JSON درخواست (فیلدهای vless_enabled/vless_transport/... و trojan_*) رو
-    به ساختار variants تبدیل می‌کنه. base مقادیر پیش‌فرض/موجود رو برای فیلدهایی که
-    توی body نیومدن فراهم می‌کنه (برای PATCH جزئی)."""
     base = base or default_variants()
     result = {}
     for auth in AUTH_TYPES:
@@ -359,10 +310,6 @@ def variants_from_body(body: dict, base: dict | None = None) -> dict:
     return sanitize_variants(result)
 
 DB_FILE = "/data/panel.db" if os.path.isdir("/data") else "panel.db"
-if os.path.isdir("/data"):
-    logger.warning(f"[STARTUP] Persistent volume detected at /data -> using {DB_FILE} (data survives restarts/deploys)")
-else:
-    logger.warning(f"[STARTUP] NO persistent volume found at /data -> using EPHEMERAL {DB_FILE} (ALL links/data will be LOST on next restart/deploy!)")
 DB_LOCK = asyncio.Lock()
 bot = None
 bot_polling_task: asyncio.Task | None = None
@@ -561,8 +508,6 @@ def build_main_keyboard():
     )
     return kb
 
-# ── SQLite Database ──────────────────────────────────────────────────────
-
 def get_db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -620,7 +565,6 @@ def init_db():
         );
     """)
     conn.commit()
-    # Migrate older DBs created before protocol/fingerprint/alpn/port existed
     existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(links)").fetchall()}
     for col, ddl in (
         ("protocol", "ALTER TABLE links ADD COLUMN protocol TEXT DEFAULT 'vless-ws'"),
@@ -632,7 +576,6 @@ def init_db():
         if col not in existing_cols:
             conn.execute(ddl)
     conn.commit()
-    # Ensure default auth row
     cur = conn.execute("SELECT password_hash FROM auth WHERE id = 1")
     row = cur.fetchone()
     if row is None:
@@ -651,12 +594,10 @@ def migrate_json_to_sqlite():
     try:
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-        # Migrate auth
         pw = data.get("auth_hash")
         if pw:
             conn.execute("INSERT OR REPLACE INTO auth (id, password_hash) VALUES (1, ?)", (pw,))
             AUTH["password_hash"] = pw
-        # Migrate links
         links = data.get("links", {})
         for uid, link in links.items():
             variants = variants_from_legacy(link.get("protocol", DEFAULT_PROTOCOL), link.get("fingerprint", DEFAULT_FINGERPRINT), link.get("alpn", ""))
@@ -671,20 +612,17 @@ def migrate_json_to_sqlite():
                   json.dumps(variants)))
             LINKS[uid] = dict(link)
             LINKS[uid]["variants"] = variants
-        # Migrate addresses
         addresses = data.get("custom_addresses", [])
         CUSTOM_ADDRESSES.clear()
         for addr in addresses:
             conn.execute("INSERT OR IGNORE INTO custom_addresses (address) VALUES (?)", (addr,))
             CUSTOM_ADDRESSES.append(addr)
-        # Migrate settings
         for key in ("telegram_token", "telegram_admin_id", "bot_lang"):
             val = data.get(key)
             if val:
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(val)))
                 CONFIG[key] = val
         conn.commit()
-        # Backup and remove old JSON
         os.rename(json_file, json_file + ".bak")
         logger.info(f"Migrated from {json_file} to SQLite database.")
     except Exception as e:
@@ -696,9 +634,7 @@ async def save_db():
     conn = get_db()
     try:
         async with DB_LOCK:
-            # Save auth
             conn.execute("INSERT OR REPLACE INTO auth (id, password_hash) VALUES (1, ?)", (AUTH["password_hash"],))
-            # Save links
             async with LINKS_LOCK:
                 for uid, link in list(LINKS.items()):
                     variants = sanitize_variants(link.get("variants"))
@@ -711,12 +647,10 @@ async def save_db():
                           1 if link.get("active", True) else 0, link.get("expires_at"),
                           legacy_protocol, legacy_fp, legacy_alpn, link.get("port", DEFAULT_PORT),
                           json.dumps(variants)))
-            # Save addresses
             async with CUSTOM_ADDRESSES_LOCK:
                 conn.execute("DELETE FROM custom_addresses")
                 for addr in CUSTOM_ADDRESSES:
                     conn.execute("INSERT INTO custom_addresses (address) VALUES (?)", (addr,))
-            # Save settings
             for key in ("telegram_token", "telegram_admin_id", "bot_lang", "railway_token", "notify_connections"):
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, CONFIG.get(key, "")))
             conn.commit()
@@ -729,12 +663,10 @@ def load_db():
     global CUSTOM_ADDRESSES, LINKS
     conn = get_db()
     try:
-        # Load auth
         cur = conn.execute("SELECT password_hash FROM auth WHERE id = 1")
         row = cur.fetchone()
         if row:
             AUTH["password_hash"] = row["password_hash"]
-        # Load links
         LINKS.clear()
         cur = conn.execute("SELECT * FROM links")
         for row in cur.fetchall():
@@ -758,19 +690,15 @@ def load_db():
                 "variants": variants,
                 "port": row["port"] if row["port"] else DEFAULT_PORT,
             }
-        # Load addresses
         CUSTOM_ADDRESSES.clear()
         cur = conn.execute("SELECT address FROM custom_addresses")
         rows = cur.fetchall()
         if rows:
             CUSTOM_ADDRESSES.extend(row["address"] for row in rows)
-        # پاک‌سازی یک‌بارمصرف: آدرس پیش‌فرض قدیمی رو دیگه نمی‌خوایم، حتی اگه از قبل
-        # تو دیتابیس ذخیره شده باشه.
         if "www.speedtest.net" in CUSTOM_ADDRESSES:
             CUSTOM_ADDRESSES.remove("www.speedtest.net")
             conn.execute("DELETE FROM custom_addresses WHERE address = ?", ("www.speedtest.net",))
             conn.commit()
-        # Load settings
         cur = conn.execute("SELECT key, value FROM settings")
         for row in cur.fetchall():
             CONFIG[row["key"]] = row["value"]
@@ -783,7 +711,6 @@ def hash_password(pw: str) -> str:
     return hashlib.sha256(f"{pw}{CONFIG['secret']}".encode()).hexdigest()
 
 AUTH = {"password_hash": hash_password("admin")}
-
 
 async def create_session() -> str:
     token = secrets.token_urlsafe(32)
@@ -882,15 +809,6 @@ def generate_vless_link(
     fingerprint: str | None = None,
     alpn: str | None = None,
 ) -> str:
-    """می‌سازد share-link متناسب با auth (vless/trojan) و ترابرد انتخاب‌شده
-    (ws یا یکی از دو مد XHTTP: packet-up / stream-up). fingerprint/alpn در
-    صورت ندادن، از پیش‌فرض‌های خودِ پروتکل استفاده می‌کنن. پورت همیشه 443 است
-    و پارامتر port دیگه در نظر گرفته نمی‌شه.
-
-    نکته‌ی مهم: برای هر دو auth، همون uid مخفیِ توی مسیر URL (/ws/{uid} یا
-    /xhttp/{mode}/{uid}) واقعاً احراز هویت می‌کنه، نه UUID داخل هدر VLESS یا
-    پسورد داخل هدر Trojan (که هیچ‌کدوم سمت سرور چک نمی‌شن) — پس برای Trojan هم
-    از همون uid به‌عنوان password توی لینک استفاده می‌کنیم."""
     domain = get_domain()
     addr = address if address else domain
 
@@ -905,15 +823,13 @@ def generate_vless_link(
     if alpn_val not in ALPN_OPTIONS:
         alpn_val = DEFAULT_ALPN_BY_PROTOCOL.get(protocol, "http/1.1")
 
-    # پورت ثابت و همیشه 443 — هر مقدار ورودی نادیده گرفته می‌شه
     use_port = DEFAULT_PORT
 
     if transport == "ws":
         path = f"/ws/{auth}/{uuid}?ed=2048"
         base_params = {"security": "tls", "type": "ws", "host": domain, "path": path, "sni": domain, "fp": fp, "alpn": alpn_val}
     else:
-        # xhttp-packet-up / xhttp-stream-up
-        mode = transport.replace("xhttp-", "")  # packet-up | stream-up
+        mode = transport.replace("xhttp-", "")
         path = f"/xhttp/{auth}/{mode}/{uuid}"
         base_params = {"security": "tls", "type": "xhttp", "mode": mode, "host": domain, "path": path, "sni": domain, "fp": fp, "alpn": alpn_val}
 
@@ -921,18 +837,13 @@ def generate_vless_link(
         params = {"encryption": "none", **base_params}
         scheme = "vless"
     else:
-        # trojan:// user-info بخش، password هست نه uuid؛ چون سمت سرور چک نمی‌شه از
-        # همون uid استفاده می‌کنیم تا برای کاربر هم مشخص و یکتا بمونه.
         params = base_params
         scheme = "trojan"
 
     query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
     return f"{scheme}://{uuid}@{addr}:{use_port}?{query}#{quote(remark)}"
 
-
 def link_for_variant(link: dict, uid: str, auth: str, address: str = None) -> str | None:
-    """اگه variant مربوط به این auth (vless/trojan) روی این لینک فعال باشه، share-link
-    مربوطه رو می‌سازه؛ وگرنه None برمی‌گردونه."""
     variant = sanitize_variants(link.get("variants")).get(auth)
     if not variant or not variant.get("enabled"):
         return None
@@ -947,7 +858,6 @@ def link_for_variant(link: dict, uid: str, auth: str, address: str = None) -> st
     )
 
 def links_for_all_variants(link: dict, uid: str, address: str = None) -> list[str]:
-    """برای هر auth فعال روی این لینک، یک share-link می‌سازه (ممکنه ۱ یا ۲ تا خروجی بده)."""
     out = []
     for auth in AUTH_TYPES:
         share_link = link_for_variant(link, uid, auth, address=address)
@@ -1011,11 +921,6 @@ async def find_uid_by_label(label: str) -> str | None:
 _UUID_RE = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
 
 def migrate_legacy_uuids():
-    """One-time migration: older versions of this panel used the link's label
-    as its VLESS uuid (e.g. 'Default', 'Ali'). Modern clients (Hiddify, Clash
-    Meta, and other sing-box/Xray-based apps) reject non-UUID ids outright.
-    This rewrites any such legacy link to use a real UUID, keeping its label,
-    quota, usage, and expiry intact."""
     conn = get_db()
     try:
         changed = False
@@ -1247,8 +1152,6 @@ def _notify_connections_enabled() -> bool:
     return str(CONFIG.get("notify_connections", "0")) in ("1", "true", "True")
 
 async def _log_connection_event(event: str, label: str, uid: str, ip: str, extra: str = ""):
-    """Logs every client connect/disconnect and, if enabled in Settings,
-    forwards the same event to the admin via Telegram."""
     verb = "Connected" if event == "connect" else "Disconnected"
     suffix = f" - {extra}" if extra else ""
     logger.info(f"{verb}: link='{label}' ({uid}) from {ip}{suffix}")
@@ -1503,9 +1406,6 @@ async def health():
 
 @app.get("/api/ping-check")
 async def ping_check(host: str, port: int = 443):
-    """Measures real TCP connect latency to a config's host from the panel's
-    own server/network (not the visitor's browser), so results reflect the
-    server's actual reachability instead of being limited by browser CORS."""
     if port < 1 or port > 65535:
         return {"host": host, "port": port, "ms": None, "reachable": False}
     start = time.time()
@@ -1596,9 +1496,6 @@ async def get_settings(_=Depends(require_auth)):
 @app.post("/api/settings")
 async def update_settings(request: Request, _=Depends(require_auth)):
     body = await request.json()
-    # Only touch fields the caller actually sent, so saving from one settings
-    # form (e.g. just the Telegram fields) doesn't wipe out fields that
-    # belong to another form (e.g. the Railway token).
     if "telegram_token" in body:
         CONFIG["telegram_token"] = (body.get("telegram_token") or "").strip()
     if "telegram_admin_id" in body:
@@ -1610,8 +1507,6 @@ async def update_settings(request: Request, _=Depends(require_auth)):
     await save_db()
     await restart_telegram_bot()
     return {"ok": True}
-
-# ── Railway / Permanent Database ──────────────────────────────────────────
 
 RAILWAY_API_URL = "https://backboard.railway.com/graphql/v2"
 
@@ -1642,7 +1537,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
     projects = []
     seen_ids = set()
 
-    # Personal-account-scoped projects (not inside any workspace)
     personal_data = await _railway_graphql(token, """
         query {
             projects {
@@ -1656,8 +1550,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
             seen_ids.add(node["id"])
             projects.append({"id": node["id"], "name": node.get("name", "Unnamed")})
 
-    # Most Railway accounts now keep their projects inside a workspace, so we
-    # also need to enumerate workspaces and fetch each one's projects.
     try:
         ws_data = await _railway_graphql(token, """
             query {
@@ -1666,8 +1558,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
         """)
         workspaces = (ws_data.get("me") or {}).get("workspaces") or []
     except HTTPException:
-        # A workspace- or project-scoped token can't call `me`; that's fine,
-        # we just skip workspace enumeration and keep whatever we already have.
         workspaces = []
 
     for ws in workspaces:
@@ -1693,16 +1583,6 @@ async def railway_list_projects(request: Request, _=Depends(require_auth)):
     return {"projects": projects}
 
 async def _railway_resolve_service(token: str, project_id: str) -> dict:
-    """Figures out which service in the project the volume should attach to.
-
-    Railway limits each service to a single volume, and there's no reliable
-    way to guess which of a project's services is "the panel" without extra
-    input from the user - except that when this app is itself deployed on
-    Railway, Railway automatically injects RAILWAY_SERVICE_ID into its own
-    environment. We use that for a fully automatic match, and fall back to
-    "only one service in the project" when it's not available or doesn't
-    belong to this project.
-    """
     data = await _railway_graphql(token, """
         query ($id: String!) {
             project(id: $id) {
@@ -1839,7 +1719,6 @@ async def create_link(request: Request, _=Depends(require_auth)):
             pass
 
     variants = variants_from_body(body)
-    # پورت همیشه 443 است؛ هر مقدار دیگه‌ای که فرانت بفرسته نادیده گرفته می‌شه
     port = DEFAULT_PORT
 
     uid = str(uuid.uuid4())
@@ -1912,7 +1791,6 @@ async def toggle_link(uid: str, request: Request, _=Depends(require_auth)):
                         "trojan_enabled", "trojan_transport", "trojan_fingerprint", "trojan_alpn")
         if any(k in body for k in variant_keys):
             LINKS[uid]["variants"] = variants_from_body(body, base=sanitize_variants(LINKS[uid].get("variants")))
-        # پورت همیشه 443 است — دیگه از ورودی کاربر خونده نمی‌شه
         LINKS[uid]["port"] = DEFAULT_PORT
         if "days_valid" in body:
             try:
@@ -1972,8 +1850,6 @@ async def delete_address(index: int, _=Depends(require_auth)):
     await save_db()
     return {"ok": True, "addresses": list(CUSTOM_ADDRESSES)}
 
-# فایل‌های آماده‌ی IP که کنار main.py قرار می‌گیرن و با یک کلیک، همه‌شون یکجا
-# (بدون رفت‌وبرگشت جدا برای هر آی‌پی) به لیست Clean IP اضافه می‌شن.
 IP_IMPORT_FILES = {
     "railway": "railway_ips.txt",
 }
@@ -1993,8 +1869,6 @@ def _parse_ip_file(path: str) -> list[str]:
 
 @app.post("/api/addresses/import/{source}")
 async def import_addresses(source: str, _=Depends(require_auth)):
-    """همه‌ی آی‌پی‌های داخل railway_ips.txt رو یکجا (بدون تاخیر
-    برای هرکدوم جدا) به لیست Clean IP اضافه می‌کنه."""
     filename = IP_IMPORT_FILES.get(source)
     if not filename:
         raise HTTPException(status_code=404, detail="unknown import source")
@@ -2012,8 +1886,6 @@ async def import_addresses(source: str, _=Depends(require_auth)):
                 added += 1
     await save_db()
     return {"ok": True, "added": added, "total_in_file": len(ips), "addresses": list(CUSTOM_ADDRESSES)}
-
-# ── Notifications API ────────────────────────────────────────────────────
 
 @app.get("/api/notifications")
 async def api_get_notifications(_=Depends(require_auth)):
@@ -2105,7 +1977,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         expiry_str = f"{days}d {hours}h"
         expiry_days = days
 
-    # Parse expiry date string for display
     expiry_date_str = ""
     if expires_at_str:
         exp_dt = parse_expires_at(expires_at_str)
@@ -2116,14 +1987,12 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     for addr in addresses:
         configs.extend(links_for_all_variants(link, uid, address=addr))
 
-    # Sub URL for QR
     sub_url = f"https://{get_domain()}/sub/{uid}"
     configs_json = json.dumps(configs)
 
     is_active = link["active"]
     status_text = "Active" if is_active else "Inactive"
     
-    # Color based on usage percentage
     if pct >= 90:
         ring_color1 = "#f87171"
         ring_color2 = "#ef4444"
@@ -2155,7 +2024,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         html,body{{height:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text)}}
         body{{padding:0;display:flex;flex-direction:column;align-items:center;min-height:100vh;overflow-x:hidden}}
 
-        /* Animated background */
         .bg-glow{{position:fixed;inset:0;z-index:0;pointer-events:none;
             background:radial-gradient(ellipse 60% 40% at 50% -5%,rgba(255,215,0,0.08),transparent 60%),
                        radial-gradient(ellipse 40% 30% at 80% 80%,rgba(255,215,0,0.05),transparent 50%);}}
@@ -2163,7 +2031,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             background-image:linear-gradient(rgba(255,215,0,0.03) 1px,transparent 1px),
                              linear-gradient(90deg,rgba(255,215,0,0.03) 1px,transparent 1px);
             background-size:48px 48px;}}
-        /* Shooting stars */
         .shooting-stars{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
         .shooting-stars .star{{position:absolute;width:110px;height:1px;
             background:linear-gradient(90deg,transparent,rgba(255,215,0,0.55));
@@ -2187,7 +2054,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         @media (prefers-reduced-motion: reduce){{
             .shooting-stars{{display:none}}
         }}
-        /* Starfield */
         .starfield{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
         .starfield .s{{position:absolute;border-radius:50%;background:#fff;
             animation-name:twinkle;animation-timing-function:ease-in-out;animation-iteration-count:infinite}}
@@ -2196,10 +2062,8 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             .starfield .s{{animation:none;opacity:.4}}
         }}
 
-
         .container{{width:100%;max-width:420px;padding:20px 16px 40px;position:relative;z-index:1}}
 
-        /* Header */
         .header{{text-align:center;padding:24px 0 20px}}
         .header-logo{{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}}
         .header-title{{font-size:22px;font-weight:900;letter-spacing:3px;
@@ -2207,7 +2071,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             -webkit-background-clip:text;-webkit-text-fill-color:transparent}}
         .header-sub{{font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase}}
 
-        /* Usage ring card */
         .ring-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:28px 24px;margin-bottom:14px;text-align:center;
             box-shadow:0 4px 24px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,215,0,0.08)}}
@@ -2237,7 +2100,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .info-box-val.gold{{color:var(--gold)}}
         .info-box-sub{{font-size:10px;color:var(--text3);margin-top:1px}}
 
-        /* QR card */
         .qr-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:24px;margin-bottom:14px;text-align:center;
             box-shadow:0 4px 24px rgba(0,0,0,0.4)}}
@@ -2256,7 +2118,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             box-shadow:0 0 20px rgba(255,215,0,0.25);transition:all .2s}}
         .copy-sub-btn:hover{{filter:brightness(1.1);box-shadow:0 0 30px rgba(255,215,0,0.4)}}
 
-        /* Platform chips */
         .section-label{{font-size:9px;font-weight:800;letter-spacing:2px;color:var(--text3);
             text-transform:uppercase;margin:20px 0 10px}}
         .platform-chips{{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}}
@@ -2265,7 +2126,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}}
         .chip:hover,.chip.active{{background:var(--gold-dim);border-color:var(--border2);color:var(--gold)}}
 
-        /* App cards */
         .apps-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}}
         .app-card{{background:var(--surface2);border:1px solid var(--border);border-radius:14px;
             padding:14px;cursor:pointer;transition:all .2s;text-decoration:none;display:block}}
@@ -2276,7 +2136,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .app-name{{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}}
         .app-action{{font-size:10.5px;color:var(--text3)}}
 
-        /* Config list */
         .configs-card{{background:var(--surface2);border:1px solid var(--border);border-radius:20px;
             padding:18px;margin-bottom:14px}}
         .configs-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}}
@@ -2303,7 +2162,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             cursor:pointer;transition:all .2s;font-family:inherit}}
         .btn-qr:hover{{background:rgba(167,139,250,0.15)}}
 
-        /* Ping all btn */
         .ping-btn{{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(74,222,128,0.2);
             background:rgba(74,222,128,0.08);color:var(--green);font-size:14px;font-weight:700;
             cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
@@ -2311,7 +2169,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .ping-btn:hover{{background:rgba(74,222,128,0.15);box-shadow:0 0 20px rgba(74,222,128,0.1)}}
         .ping-btn:disabled{{opacity:0.6;cursor:wait}}
 
-        /* QR modal */
         .mo{{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;
             align-items:center;justify-content:center;backdrop-filter:blur(8px)}}
         .mo.show{{display:flex}}
@@ -2324,7 +2181,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}}
         .mo-title{{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:4px}}
 
-        /* Toast */
         .toast{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);
             background:var(--bg2);color:var(--gold);border:1px solid var(--border2);
             border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;
@@ -2332,13 +2188,11 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
             box-shadow:var(--gold-glow)}}
         .toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
 
-        /* VANTA footer links */
         .footer-links{{display:flex;justify-content:center;gap:16px;padding:20px 0 10px}}
         .footer-link{{display:flex;align-items:center;gap:5px;color:var(--text3);
             font-size:11px;font-weight:600;text-decoration:none;transition:color .2s}}
         .footer-link:hover{{color:var(--gold)}}
     
-/* ===== VANTA TOP NAVIGATION — refreshed layout ===== */
 :root{{--vanta-purple:#8b5cf6;--vanta-purple2:#a855f7;--vanta-purple-dim:rgba(139,92,246,.12);--vanta-purple-border:rgba(139,92,246,.28)}}
 .sidebar{{
   position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
@@ -2451,7 +2305,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 <div class="container">
 
-    <!-- Header -->
     <div class="header">
         <div class="header-logo">
             <svg width="28" height="24" viewBox="0 0 84 68" fill="none">
@@ -2466,7 +2319,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div class="header-sub">{link['label']} · Connection Status</div>
     </div>
 
-    <!-- Usage Ring Card -->
     <div class="ring-card">
         <div class="ring-wrap">
             <svg class="ring-svg" viewBox="0 0 160 160">
@@ -2503,7 +2355,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </div>
     </div>
 
-    <!-- QR Code Card -->
     <div class="qr-card">
         <div class="qr-label">Scan to Add</div>
         <div class="qr-wrap">
@@ -2517,7 +2368,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         </button>
     </div>
 
-    <!-- Easy Import Section -->
     <div class="section-label">Easy Import</div>
     <div class="platform-chips" id="platform-chips">
         <div class="chip active" onclick="setPlatform('Android',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" style="vertical-align:-2px;margin-right:3px"><path d="M7.2 8h9.6a5 5 0 0 0-2-3.5l1-1.7a.35.35 0 0 0-.6-.35l-1.05 1.8A5.6 5.6 0 0 0 12 3.7c-.78 0-1.5.15-2.15.4L8.8 2.3a.35.35 0 0 0-.6.35l1 1.7A5 5 0 0 0 7.2 8zm2.55-1.6a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6zm4.5 0a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6zM6.5 9.2h11v8.3a1 1 0 0 1-1 1h-1.2v2.8a1.3 1.3 0 0 1-2.6 0v-2.8h-1.4v2.8a1.3 1.3 0 0 1-2.6 0v-2.8H7.5a1 1 0 0 1-1-1V9.2zM4 9.2a1.3 1.3 0 0 1 1.3 1.3v4.8a1.3 1.3 0 0 1-2.6 0v-4.8A1.3 1.3 0 0 1 4 9.2zm16 0a1.3 1.3 0 0 1 1.3 1.3v4.8a1.3 1.3 0 0 1-2.6 0v-4.8A1.3 1.3 0 0 1 20 9.2z"/></svg> Android</div>
@@ -2531,7 +2381,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
     <div id="apps-container" class="apps-grid"></div>
 
-    <!-- Configs -->
     <div class="configs-card">
         <div class="configs-header">
             <div class="configs-title">CONFIGS</div>
@@ -2541,7 +2390,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <div id="config-list"></div>
     </div>
 
-    <!-- Footer links -->
     <div class="footer-links">
         <a href="https://t.me/Vantahub1792" target="_blank" class="footer-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
@@ -2562,7 +2410,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 </div>
 
-<!-- QR Modal -->
 <div class="mo" id="qr-modal" onclick="if(event.target===this)this.classList.remove('show')">
     <div class="mo-box">
         <button class="mo-close" onclick="document.getElementById('qr-modal').classList.remove('show')">✕</button>
@@ -2587,15 +2434,9 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }}
         sf.innerHTML=h;
     }})();
-    // Hiddify's own URL Scheme spec is: hiddify://import/<sublink>#<name>
-    // The #name fragment is what Hiddify shows as the profile name before
-    // it even fetches the sublink, and is used as a fallback if the
-    // content's own #profile-title header is missing or fails to parse.
     const hiddifyProfileName = encodeURIComponent("VANTA-{link['label']}");
     const hiddifyImportUrl = "hiddify://import/" + subUrl + "#" + hiddifyProfileName;
 
-    // Returns URL to the PNG icon for the given app name.
-    // Falls back to SVG initials if the PNG file does not exist.
     function appIcon(name, bg) {{
         const encoded = encodeURIComponent(name) + '.png';
         return '/client/' + encoded;
@@ -2668,10 +2509,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         `).join('');
     }}
 
-    // Tries to open an app via custom URL scheme. If the app doesn't take over
-    // the page within a short window (meaning it isn't installed or the scheme
-    // didn't register), tries a fallback scheme, and if that also fails,
-    // copies the subscription link so the user can paste it manually.
     function tryOpenScheme(url, onFail) {{
         let didHide = false;
         const onVisibilityChange = () => {{ if (document.hidden) didHide = true; }};
@@ -2728,7 +2565,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }});
     }}
 
-    // از خودِ رشته‌ی share-link (vless:// یا trojan://) نوع پروتکل/ترابرد/امنیت واقعی رو تشخیص می‌ده
     function configBadge(cfg) {{
         try {{
             const scheme = cfg.split('://')[0].toUpperCase();
@@ -2747,7 +2583,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         }}
     }}
 
-    // Render configs
     function renderConfigs() {{
         const list = document.getElementById('config-list');
         document.getElementById('configs-count').textContent = configs.length + ' config' + (configs.length !== 1 ? 's' : '');
@@ -2793,15 +2628,11 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         a.click();
     }}
 
-    // Extracts host:port from a vless:// config link
     function parseHostPort(cfg) {{
         const m = cfg.match(/@([^:/?#]+):(\\d+)/);
         return m ? {{host: m[1], port: m[2]}} : null;
     }}
 
-    // Asks the panel's own server to test connectivity to a config's host,
-    // so the ping result reflects the server's real network path (and isn't
-    // limited/blocked by the visitor's browser CORS rules).
     async function pingHost(host, port) {{
         try {{
             const r = await fetch('/api/ping-check?host=' + encodeURIComponent(host) + '&port=' + encodeURIComponent(port));
@@ -2878,9 +2709,6 @@ def generate_subscription_content(link: dict, uid: str, addresses: list[str]) ->
 
 
 def generate_singbox_config(link: dict, uid: str, addresses: list[str]) -> str:
-    """Hiddify's engine is sing-box, so give it sing-box's own native
-    outbound JSON instead of the generic base64 vless list - removes any
-    dependency on Hiddify's vless://-URL parser entirely."""
     domain = get_domain()
 
     def _vless_outbound(tag: str, server: str, port: int = DEFAULT_PORT) -> dict:
@@ -2945,8 +2773,6 @@ def generate_clash_config(link: dict, uid: str, addresses: list[str]) -> str:
     variants = sanitize_variants(link.get("variants"))
 
     def _proxy_entry(auth: str, fp: str, name: str, server: str, port: int = DEFAULT_PORT) -> str:
-        # نکته: این خروجی کلش فقط ترابرد WS رو پوشش می‌ده؛ برای لینک‌های XHTTP از
-        # همون لینک share (vless:// یا trojan://) استفاده کن.
         cred_line = f'    uuid: {uid}\n' if auth == "vless" else f'    password: {uid}\n'
         return (
             f'  - name: "{name}"\n'
@@ -2963,7 +2789,6 @@ def generate_clash_config(link: dict, uid: str, addresses: list[str]) -> str:
             f'      Host: {domain}\n'
         )
 
-    # فقط auth هایی که فعالن و ترابردشون ws هست رو کلش می‌سازیم (محدودیت خودِ این export)
     active_auths = [a for a in AUTH_TYPES if variants[a]["enabled"] and variants[a]["transport"] == "ws"]
 
     proxies = []
@@ -3042,14 +2867,6 @@ async def subscription_endpoint(uid: str, request: Request):
     ua = request.headers.get("user-agent", "").lower()
     accept = request.headers.get("accept", "").lower()
 
-    # Many VPN client apps (Hiddify, NapsternetV, v2rayNG, sing-box front-ends,
-    # etc.) use HTTP libraries (Dio/OkHttp/etc.) that sometimes send a
-    # browser-like User-Agent and/or a permissive Accept header for
-    # compatibility with CDNs. If we only check for "mozilla"+"text/html" we
-    # misclassify these real clients as browsers and hand them the HTML
-    # landing page, which they can't parse ("unable to determine config
-    # format"). So known client fingerprints are checked FIRST and always
-    # win, regardless of what Accept/UA otherwise look like.
     known_client_markers = [
         "hiddify", "napsternet", "v2rayng", "v2box", "nekoray", "nekobox",
         "sing-box", "singbox", "streisand", "karing", "shadowrocket",
@@ -3128,9 +2945,6 @@ async def parse_vless_header(first_chunk: bytes):
     return command, address, port, first_chunk[pos:]
 
 async def parse_trojan_header(first_chunk: bytes):
-    """پارس هدر Trojan: hex(SHA224(password))[56] + CRLF + (CMD+ATYP+DST.ADDR+DST.PORT) + CRLF + payload.
-    مقدار hash پسورد اعتبارسنجی نمی‌شه چون احراز هویت واقعی همون uid مخفیِ توی
-    مسیر URL هست (دقیقاً مثل رفتار فعلیِ پنل برای VLESS)."""
     if len(first_chunk) < 56 + 2 + 1 + 1 + 2 + 2:
         raise ValueError("chunk too small")
     pos = 56
@@ -3164,14 +2978,11 @@ async def parse_trojan_header(first_chunk: bytes):
     return command, address, port, first_chunk[pos:]
 
 async def parse_proxy_header(auth: str, first_chunk: bytes):
-    """بر اساس auth گرفته‌شده از مسیر URL (vless یا trojan)، هدر رو با پارسر درست می‌خونه."""
     if auth == "trojan":
         return await parse_trojan_header(first_chunk)
     return await parse_vless_header(first_chunk)
 
 def response_prefix_for_protocol(auth: str) -> bytes:
-    """VLESS یک پاسخ ۲ بایتی (version=0 + no addons) قبل از اولین چانک دیتای برگشتی
-    می‌فرسته؛ Trojan چنین چیزی نداره و کاملاً raw pass-through هست."""
     return b"" if auth == "trojan" else b"\x00\x00"
 
 async def check_quota(uid: str, extra_bytes: int) -> bool:
@@ -3192,14 +3003,6 @@ async def add_usage(uid: str, n: int):
             LINKS[uid]["used_bytes"] += n
 
 async def check_and_add_usage(uid: str, extra_bytes: int) -> bool:
-    """Atomically check quota/expiry/active state and commit usage in a
-    single lock acquisition. Doing this as two separate locked calls
-    (check_quota then add_usage) let concurrent chunks - e.g. the upload
-    and download directions of the same connection racing each other -
-    both pass the check before either had committed, which could push a
-    link's used_bytes past its limit. It also doubled lock contention on
-    every single packet relayed, which was a real throughput bottleneck
-    under load. This does both in one step."""
     async with LINKS_LOCK:
         link = LINKS.get(uid)
         if link is None or not link["active"]:
@@ -3306,12 +3109,6 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
             await websocket.close(code=1008)
             return
 
-    # Xray/V2Ray clients that request early data (ws ?ed=... in the link)
-    # smuggle the first chunk of the VLESS request inside the
-    # Sec-WebSocket-Protocol header of the upgrade request itself, so it
-    # arrives in the same TCP packet as the handshake instead of a separate
-    # round trip after accept(). Echoing the header back keeps the handshake
-    # spec-compliant for clients that check it.
     early_data_hdr = websocket.headers.get("sec-websocket-protocol")
     early_data = b""
     if early_data_hdr:
@@ -3370,10 +3167,6 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(address, port), timeout=10.0
         )
-        # Disable Nagle's algorithm on the backend TCP socket. Without this,
-        # small proxied packets (the common case for interactive/streaming
-        # traffic) can sit buffered for up to ~40ms waiting to be coalesced,
-        # which is felt as real added latency/slowness on every config.
         try:
             backend_sock = writer.get_extra_info("socket")
             if backend_sock is not None:
@@ -3455,14 +3248,12 @@ async def websocket_tunnel(websocket: WebSocket, auth: str, uuid: str):
                 extra = f"duration {duration_s}s, {_fmt_bytes(info.get('bytes', 0))}"
                 await _log_connection_event("disconnect", label, info.get("uuid", uuid), info.get("ip", client_ip), extra)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# XHTTP transport (packet-up / stream-up) — جدا شده به xhttp_transport.py
-# ══════════════════════════════════════════════════════════════════════════════
 from xhttp_transport import router as xhttp_router
 app.include_router(xhttp_router)
 
-# ── HTML Panel (Gold/Neon Theme) ─────────────────────────────────────────
-# ── HTML Panel (Gold/Neon Theme) ─────────────────────────────────────────
+# ============================================
+# پنل جدید با منوی بالای صفحه
+# ============================================
 PANEL_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3471,240 +3262,731 @@ PANEL_HTML = r"""<!DOCTYPE html>
 <title>VANTA Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 :root {
-  --gold: #FFD700;
-  --gold2: #FFC200;
-  --bg: #0a0a0f;
-  --bg2: #12121a;
-  --bg3: #1a1a24;
-  --surface: rgba(18,18,26,0.95);
-  --border: rgba(255,215,0,0.12);
-  --text: #fff;
-  --text2: rgba(255,215,0,0.7);
+  --bg: #0a0a12;
+  --bg2: #11111d;
+  --bg3: #19192b;
+  --surface: rgba(17,17,29,0.95);
+  --border: rgba(139,92,246,0.15);
+  --text: #ffffff;
+  --text2: rgba(255,255,255,0.7);
   --text3: rgba(255,255,255,0.4);
+  --purple: #8b5cf6;
+  --purple2: #a855f7;
+  --gold: #FFD700;
   --green: #4ade80;
   --red: #f87171;
 }
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;margin:0}
-.sidebar{width:200px;background:var(--bg2);border-right:1px solid var(--border);padding:20px 0;height:100vh;position:fixed;display:flex;flex-direction:column;z-index:100}
-.sb-brand{padding:0 20px 20px;border-bottom:1px solid var(--border)}
-.sb-title{font-size:22px;font-weight:900;color:var(--gold)}
-.sb-nav{flex:1;padding:16px 10px;display:flex;flex-direction:column;gap:4px}
-.nav-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;color:var(--text3);cursor:pointer;transition:all .2s;border:none;background:none;width:100%;font-family:inherit;font-size:14px;font-weight:600}
-.nav-item:hover{background:rgba(255,215,0,0.06);color:var(--text)}
-.nav-item.active{background:rgba(255,215,0,0.1);color:var(--gold)}
-.nav-item .icon{font-size:18px}
-.nav-item .badge{margin-left:auto;background:var(--gold);color:#000;padding:2px 8px;border-radius:10px;font-size:11px}
-.sb-bottom{padding:16px 20px;border-top:1px solid var(--border)}
-.sb-bottom .user{font-size:13px;color:var(--text3)}
-.sb-bottom .user span{color:var(--text);font-weight:600}
-.main{margin-left:200px;flex:1;padding:30px 35px;min-height:100vh}
-.page{display:none}
-.page.active{display:block}
-.page-header{margin-bottom:25px}
-.page-title{font-size:24px;font-weight:800}
-.page-sub{color:var(--text3);font-size:14px;margin-top:4px}
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:25px}
-.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;transition:all .2s}
-.stat-card:hover{border-color:rgba(255,215,0,0.2)}
-.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:600;letter-spacing:0.5px}
-.stat-val{font-size:28px;font-weight:800;margin-top:6px}
-.stat-val .unit{font-size:14px;font-weight:400;color:var(--text3)}
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px}
-.card-title{font-size:16px;font-weight:700;margin-bottom:12px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.btn{font-family:inherit;font-size:13px;font-weight:600;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;transition:all .2s}
-.btn-gold{background:var(--gold);color:#000}
-.btn-gold:hover{transform:scale(0.97);box-shadow:0 0 20px rgba(255,215,0,0.2)}
-.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
-.btn-danger{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.15)}
-.btn-sm{padding:6px 12px;font-size:12px}
-.tbl{width:100%;border-collapse:collapse}
-.tbl th{text-align:left;font-size:11px;color:var(--text3);padding:10px 12px;font-weight:600;border-bottom:1px solid var(--border)}
-.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
-.tag{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700}
-.tag-on{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.1)}
-.tag-off{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.1)}
-.act-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:11px;font-weight:600;transition:all .2s;font-family:inherit}
-.act-btn:hover{background:var(--bg3);color:var(--text)}
-.act-edit{border-color:rgba(255,215,0,0.2);color:var(--gold)}
-.act-del{border-color:rgba(248,113,113,0.15);color:var(--red)}
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);padding:12px 24px;border-radius:10px;color:var(--gold);font-weight:600;opacity:0;transition:all .3s;z-index:999}
-.toast.show{opacity:1}
-.empty{padding:40px;text-align:center;color:var(--text3)}
-.toggle{width:38px;height:20px;border-radius:10px;background:var(--bg3);position:relative;cursor:pointer;border:1px solid var(--border);flex-shrink:0}
-.toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:var(--text3);top:2px;left:2px;transition:all .2s}
-.toggle.on{background:var(--green);border-color:var(--green)}
-.toggle.on::after{left:20px;background:#fff}
-.pill{display:flex;align-items:center;gap:8px}
-.pill-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px}
-.pill-fill{height:100%;border-radius:2px;transition:width .4s}
-.fl{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bottom:4px}
-.fi{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:14px;outline:none}
-.fi:focus{border-color:var(--gold)}
-.fr{display:flex;gap:10px;flex-wrap:wrap}
-.fg{flex:1;min-width:120px}
-.mo{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center}
-.mo.show{display:flex}
-.mo-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:500px;width:90%}
-.mo-title{font-size:20px;font-weight:800;margin-bottom:16px}
-.mo-close{float:right;background:none;border:none;color:var(--text3);font-size:24px;cursor:pointer}
-@media(max-width:768px){.sidebar{width:60px}.sb-title{font-size:14px}.sb-brand{padding:10px}.nav-item{padding:10px;justify-content:center}.nav-item .label{display:none}.main{margin-left:60px;padding:16px}.stats-row{grid-template-columns:1fr 1fr}.grid-2{grid-template-columns:1fr}}
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* ===== منوی بالای صفحه ===== */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--purple2);
+  text-decoration: none;
+}
+.topbar-brand span {
+  background: linear-gradient(135deg, var(--purple2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.topbar-nav {
+  display: flex;
+  gap: 4px;
+}
+.topbar-nav button {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+.topbar-nav button:hover {
+  color: var(--text);
+  background: rgba(139,92,246,0.08);
+}
+.topbar-nav button.active {
+  color: #fff;
+  background: rgba(139,92,246,0.15);
+  box-shadow: 0 0 20px rgba(139,92,246,0.1);
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.topbar-actions .badge {
+  background: var(--purple2);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.topbar-actions .logout {
+  padding: 8px 16px;
+  border: 1px solid rgba(248,113,113,0.2);
+  background: rgba(248,113,113,0.06);
+  color: var(--red);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.topbar-actions .logout:hover {
+  background: rgba(248,113,113,0.12);
+}
+
+/* ===== محتوای اصلی ===== */
+.main {
+  margin-top: 70px;
+  padding: 30px 35px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.page {
+  display: none;
+}
+.page.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== استایل کارت‌ها ===== */
+.page-header {
+  margin-bottom: 25px;
+}
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+}
+.page-sub {
+  color: var(--text3);
+  font-size: 14px;
+  margin-top: 4px;
+}
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 25px;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.stat-val {
+  font-size: 28px;
+  font-weight: 800;
+  margin-top: 6px;
+}
+.stat-val .unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text3);
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-purple {
+  background: var(--purple);
+  color: #fff;
+}
+.btn-purple:hover {
+  background: var(--purple2);
+  transform: scale(0.97);
+}
+.btn-ghost {
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-danger {
+  background: rgba(248,113,113,0.1);
+  color: var(--red);
+  border: 1px solid rgba(248,113,113,0.15);
+}
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tbl th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--text3);
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.tbl td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tag-on {
+  background: rgba(74,222,128,0.1);
+  color: var(--green);
+  border: 1px solid rgba(74,222,128,0.1);
+}
+.tag-off {
+  background: rgba(248,113,113,0.1);
+  color: var(--red);
+  border: 1px solid rgba(248,113,113,0.1);
+}
+.act-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.act-btn:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+.act-edit {
+  border-color: rgba(139,92,246,0.2);
+  color: var(--purple);
+}
+.act-del {
+  border-color: rgba(248,113,113,0.15);
+  color: var(--red);
+}
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 12px 24px;
+  border-radius: 10px;
+  color: var(--purple2);
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 999;
+}
+.toast.show {
+  opacity: 1;
+}
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text3);
+}
+.toggle {
+  width: 38px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--bg3);
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text3);
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+.toggle.on {
+  background: var(--green);
+  border-color: var(--green);
+}
+.toggle.on::after {
+  left: 20px;
+  background: #fff;
+}
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pill-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+}
+.pill-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s;
+}
+.fl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  display: block;
+  margin-bottom: 4px;
+}
+.fi {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.fi:focus {
+  border-color: var(--purple);
+}
+.fr {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fg {
+  flex: 1;
+  min-width: 120px;
+}
+.mo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.mo.show {
+  display: flex;
+}
+.mo-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 500px;
+  width: 90%;
+}
+.mo-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+.mo-close {
+  float: right;
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* ===== رسپانسیو ===== */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 16px;
+    height: 60px;
+  }
+  .topbar-brand {
+    font-size: 18px;
+  }
+  .topbar-nav button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .main {
+    padding: 20px 16px;
+    margin-top: 60px;
+  }
+  .stats-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .stat-val {
+    font-size: 22px;
+  }
+}
+@media (max-width: 520px) {
+  .topbar-nav button {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .topbar-actions .badge {
+    display: none;
+  }
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 </head>
 <body>
 
-<div class="sidebar">
-  <div class="sb-brand"><div class="sb-title">VANTA</div></div>
-  <nav class="sb-nav">
-    <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span><span class="label">Dashboard</span></button>
-    <button class="nav-item" data-page="inbounds"><span class="icon">🔗</span><span class="label">Inbounds</span><span class="badge" id="nb">0</span></button>
-    <button class="nav-item" data-page="addresses"><span class="icon">🌐</span><span class="label">Clean IP</span></button>
-    <button class="nav-item" data-page="settings"><span class="icon">⚙️</span><span class="label">Settings</span></button>
+<!-- منوی بالای صفحه -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <span>VANTA</span>
+  </div>
+  <nav class="topbar-nav">
+    <button class="active" data-page="dashboard">📊 Dashboard</button>
+    <button data-page="inbounds">🔗 Inbounds <span class="badge" id="nb">0</span></button>
+    <button data-page="addresses">🌐 Clean IP</button>
+    <button data-page="settings">⚙️ Settings</button>
   </nav>
-  <div class="sb-bottom"><div class="user">👤 <span>Admin</span></div></div>
-</div>
+  <div class="topbar-actions">
+    <span class="badge" id="online-badge">● Online</span>
+    <button class="logout" onclick="doLogout()">🚪 Logout</button>
+  </div>
+</header>
 
+<!-- محتوای اصلی -->
 <div class="main">
 
-  <!-- Dashboard -->
+  <!-- صفحه Dashboard -->
   <div class="page active" id="page-dashboard">
-    <div class="page-header"><div class="page-title">Dashboard</div><div class="page-sub" id="last-up">-</div></div>
+    <div class="page-header">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="last-up">-</div>
+    </div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">Traffic</div><div class="stat-val" id="sv-traffic">0<span class="unit"> MB</span></div></div>
-      <div class="stat-card"><div class="stat-label">Inbounds</div><div class="stat-val" id="sv-links">0</div></div>
-      <div class="stat-card"><div class="stat-label">Uptime</div><div class="stat-val" id="sv-uptime" style="font-size:16px">-</div></div>
-      <div class="stat-card"><div class="stat-label">Domain</div><div class="stat-val" id="sv-domain" style="font-size:13px;font-weight:500">-</div></div>
+      <div class="stat-card">
+        <div class="stat-label">Traffic</div>
+        <div class="stat-val" id="sv-traffic">0<span class="unit"> MB</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Inbounds</div>
+        <div class="stat-val" id="sv-links">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Uptime</div>
+        <div class="stat-val" id="sv-uptime" style="font-size:16px">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Domain</div>
+        <div class="stat-val" id="sv-domain" style="font-size:13px;font-weight:500">-</div>
+      </div>
     </div>
     <div class="grid-2">
-      <div class="card"><div class="card-title">CPU</div><div class="stat-val" id="cpu-v" style="font-size:20px">-%</div><div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px"><div id="cpu-b" style="height:100%;border-radius:2px;background:var(--gold);width:0%"></div></div></div>
-      <div class="card"><div class="card-title">Memory</div><div class="stat-val" id="mem-v" style="font-size:20px;color:var(--green)">-%</div><div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px"><div id="mem-b" style="height:100%;border-radius:2px;background:var(--green);width:0%"></div></div></div>
+      <div class="card">
+        <div class="card-title">CPU</div>
+        <div class="stat-val" id="cpu-v" style="font-size:20px">-%</div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px">
+          <div id="cpu-b" style="height:100%;border-radius:2px;background:var(--purple);width:0%"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Memory</div>
+        <div class="stat-val" id="mem-v" style="font-size:20px;color:var(--green)">-%</div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px">
+          <div id="mem-b" style="height:100%;border-radius:2px;background:var(--green);width:0%"></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Inbounds -->
+  <!-- صفحه Inbounds -->
   <div class="page" id="page-inbounds">
-    <div class="page-header"><div class="page-title">Inbounds</div><div class="page-sub">Manage your VLESS configs</div></div>
+    <div class="page-header">
+      <div class="page-title">Inbounds</div>
+      <div class="page-sub">Manage your VLESS configs</div>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-gold" onclick="showAddMo()">➕ Add</button>
+      <button class="btn btn-purple" onclick="showAddMo()">➕ Add</button>
       <input id="srch" placeholder="Search..." style="flex:1;min-width:150px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;outline:none">
     </div>
     <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Usage</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody id="ltb"></tbody></table>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Usage</th>
+            <th>Expiry</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ltb"></tbody>
+      </table>
       <div class="empty" id="lempty" style="display:none">No inbounds</div>
     </div>
   </div>
 
-  <!-- Clean IP -->
+  <!-- صفحه Clean IP -->
   <div class="page" id="page-addresses">
-    <div class="page-header"><div class="page-title">Clean IP</div><div class="page-sub">Alternative addresses for your configs</div></div>
+    <div class="page-header">
+      <div class="page-title">Clean IP</div>
+      <div class="page-sub">Alternative addresses for your configs</div>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn btn-ghost" onclick="showAddAddrMo()">➕ Add</button>
+      <button class="btn btn-purple" onclick="showAddAddrMo()">➕ Add</button>
       <button class="btn btn-ghost" onclick="importAddrs('railway')">🚄 Import Railway IPs</button>
       <button class="btn btn-danger" onclick="delAllAddrs()">🗑️ Delete All</button>
     </div>
     <div class="card"><div id="addr-list"></div></div>
   </div>
 
-  <!-- Settings -->
+  <!-- صفحه Settings -->
   <div class="page" id="page-settings">
-    <div class="page-header"><div class="page-title">Settings</div><div class="page-sub">Change password & Telegram bot</div></div>
+    <div class="page-header">
+      <div class="page-title">Settings</div>
+      <div class="page-sub">Change password & Telegram bot</div>
+    </div>
     <div class="grid-2">
-      <div class="card"><div class="card-title">Change Password</div>
-        <div class="fg"><label class="fl">Current Password</label><input class="fi" type="password" id="cpw" placeholder="Current password"></div>
-        <div class="fg"><label class="fl">New Password</label><input class="fi" type="password" id="npw" placeholder="New password"></div>
-        <button class="btn btn-gold" onclick="chgPw()" style="margin-top:10px;width:100%">Update Password</button>
+      <div class="card">
+        <div class="card-title">Change Password</div>
+        <div class="fg">
+          <label class="fl">Current Password</label>
+          <input class="fi" type="password" id="cpw" placeholder="Current password">
+        </div>
+        <div class="fg">
+          <label class="fl">New Password</label>
+          <input class="fi" type="password" id="npw" placeholder="New password">
+        </div>
+        <button class="btn btn-purple" onclick="chgPw()" style="margin-top:10px;width:100%">Update Password</button>
       </div>
-      <div class="card"><div class="card-title">Telegram Bot</div>
-        <div class="fg"><label class="fl">Bot Token</label><input class="fi" id="tg-token" placeholder="123456:ABC-DEF..."></div>
-        <div class="fg"><label class="fl">Admin Chat ID</label><input class="fi" id="tg-admin-id" placeholder="987654321"></div>
-        <button class="btn btn-gold" onclick="saveSettings()" style="margin-top:10px;width:100%">Save & Restart Bot</button>
+      <div class="card">
+        <div class="card-title">Telegram Bot</div>
+        <div class="fg">
+          <label class="fl">Bot Token</label>
+          <input class="fi" id="tg-token" placeholder="123456:ABC-DEF...">
+        </div>
+        <div class="fg">
+          <label class="fl">Admin Chat ID</label>
+          <input class="fi" id="tg-admin-id" placeholder="987654321">
+        </div>
+        <button class="btn btn-purple" onclick="saveSettings()" style="margin-top:10px;width:100%">Save & Restart Bot</button>
       </div>
     </div>
-    <div class="card"><div class="card-title">Live Logs</div><div id="log-container" style="background:#000;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:#FFD700;height:150px;overflow-y:auto;white-space:pre-wrap">Connecting...</div></div>
+    <div class="card">
+      <div class="card-title">Live Logs</div>
+      <div id="log-container" style="background:#000;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:#a855f7;height:150px;overflow-y:auto;white-space:pre-wrap">Connecting...</div>
+    </div>
   </div>
 
 </div>
 
-<!-- Modals -->
+<!-- مودال‌ها -->
 <div class="mo" id="mo-add" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="mo-box"><button class="mo-close" onclick="document.getElementById('mo-add').classList.remove('show')">✕</button>
+  <div class="mo-box">
+    <button class="mo-close" onclick="document.getElementById('mo-add').classList.remove('show')">✕</button>
     <div class="mo-title">Add Inbound</div>
-    <div class="fg"><label class="fl">Remark</label><input class="fi" id="nl" placeholder="User 1"></div>
-    <div class="fr"><div class="fg"><label class="fl">Traffic Limit (GB)</label><input class="fi" id="nv" type="number" placeholder="0 = ∞"></div>
-    <div class="fg"><label class="fl">Days Valid</label><input class="fi" id="nd" type="number" placeholder="0 = ∞"></div></div>
-    <button class="btn btn-gold" onclick="createLink()" style="width:100%;margin-top:12px">CREATE</button>
+    <div class="fg">
+      <label class="fl">Remark</label>
+      <input class="fi" id="nl" placeholder="User 1">
+    </div>
+    <div class="fr">
+      <div class="fg">
+        <label class="fl">Traffic Limit (GB)</label>
+        <input class="fi" id="nv" type="number" placeholder="0 = ∞">
+      </div>
+      <div class="fg">
+        <label class="fl">Days Valid</label>
+        <input class="fi" id="nd" type="number" placeholder="0 = ∞">
+      </div>
+    </div>
+    <button class="btn btn-purple" onclick="createLink()" style="width:100%;margin-top:12px">CREATE</button>
   </div>
 </div>
 
 <div class="mo" id="mo-addr" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="mo-box"><button class="mo-close" onclick="document.getElementById('mo-addr').classList.remove('show')">✕</button>
+  <div class="mo-box">
+    <button class="mo-close" onclick="document.getElementById('mo-addr').classList.remove('show')">✕</button>
     <div class="mo-title">Add Clean IP</div>
-    <div class="fg"><label class="fl">IPs (one per line)</label><textarea class="fi" id="na" rows="4" placeholder="8.8.8.8&#10;example.com" style="resize:vertical;font-family:monospace"></textarea></div>
-    <button class="btn btn-gold" onclick="addAddrs()" style="width:100%;margin-top:12px">ADD ALL</button>
+    <div class="fg">
+      <label class="fl">IPs (one per line)</label>
+      <textarea class="fi" id="na" rows="4" placeholder="8.8.8.8&#10;example.com" style="resize:vertical;font-family:monospace"></textarea>
+    </div>
+    <button class="btn btn-purple" onclick="addAddrs()" style="width:100%;margin-top:12px">ADD ALL</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-let allLinks=[], allAddrs=[], isAuth=false, logsWS=null;
+let allLinks = [], allAddrs = [], isAuth = false, logsWS = null;
 
-function $(s){return document.querySelector(s)}
-function $m(id){return document.getElementById(id)}
+function $(s){ return document.querySelector(s); }
+function $m(id){ return document.getElementById(id); }
 
-document.querySelectorAll('.nav-item').forEach(el=>{
-  el.addEventListener('click',()=>{
-    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-    el.classList.add('active');
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-    $m('page-'+el.dataset.page).classList.add('active');
+// ===== منو =====
+document.querySelectorAll('.topbar-nav button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.topbar-nav button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    $m('page-' + this.dataset.page).classList.add('active');
   });
 });
 
-function toast(msg){let t=$m('toast');t.textContent=msg;t.className='toast show';clearTimeout(t._t);t._t=setTimeout(()=>t.className='toast',2500);}
-
-async function loadStats(){
-  try{
-    const r=await fetch('/stats');
-    if(r.status===401)return;
-    const d=await r.json();
-    $m('sv-traffic').innerHTML=(d.total_traffic_mb||0)+'<span class="unit"> MB</span>';
-    $m('sv-links').textContent=d.links_count||0;
-    $m('sv-uptime').textContent=d.uptime||'-';
-    $m('sv-domain').textContent=d.domain||'-';
-    $m('nb').textContent=d.links_count||0;
-    if(d.cpu_percent!==undefined){$m('cpu-v').textContent=d.cpu_percent.toFixed(1)+'%';$m('cpu-b').style.width=d.cpu_percent+'%'}
-    if(d.memory_percent!==undefined){$m('mem-v').textContent=d.memory_percent.toFixed(1)+'%';$m('mem-b').style.width=d.memory_percent+'%'}
-  }catch(e){}
+function toast(msg) {
+  let t = $m('toast');
+  t.textContent = msg;
+  t.className = 'toast show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = 'toast', 2500);
 }
 
-function fmtB(b){if(!b)return'0 B';return b>=1073741824?(b/1073741824).toFixed(2)+' GB':b>=1048576?(b/1048576).toFixed(2)+' MB':(b/1024).toFixed(1)+' KB'}
-function fmtLim(b){return(!b||b===0)?'∞':(b/1073741824).toFixed(1)+' GB'}
-function fmtExp(ea){if(!ea)return'∞';const d=new Date(ea)-new Date();if(d<=0)return'Expired';const days=Math.floor(d/86400000);return days>0?days+'d':Math.floor(d/3600000)+'h'}
+async function loadStats() {
+  try {
+    const r = await fetch('/stats');
+    if (r.status === 401) return;
+    const d = await r.json();
+    $m('sv-traffic').innerHTML = (d.total_traffic_mb || 0) + '<span class="unit"> MB</span>';
+    $m('sv-links').textContent = d.links_count || 0;
+    $m('sv-uptime').textContent = d.uptime || '-';
+    $m('sv-domain').textContent = d.domain || '-';
+    $m('nb').textContent = d.links_count || 0;
+    if (d.cpu_percent !== undefined) {
+      $m('cpu-v').textContent = d.cpu_percent.toFixed(1) + '%';
+      $m('cpu-b').style.width = d.cpu_percent + '%';
+    }
+    if (d.memory_percent !== undefined) {
+      $m('mem-v').textContent = d.memory_percent.toFixed(1) + '%';
+      $m('mem-b').style.width = d.memory_percent + '%';
+    }
+  } catch(e) {}
+}
 
-async function loadLinks(){
-  try{
-    const r=await fetch('/api/links');
-    if(!r.ok)return;
-    const d=await r.json();
-    allLinks=d.links||[];
+function fmtB(b) {
+  if (!b) return '0 B';
+  return b >= 1073741824 ? (b/1073741824).toFixed(2) + ' GB' :
+         b >= 1048576 ? (b/1048576).toFixed(2) + ' MB' :
+         (b/1024).toFixed(1) + ' KB';
+}
+function fmtLim(b) {
+  return (!b || b === 0) ? '∞' : (b/1073741824).toFixed(1) + ' GB';
+}
+function fmtExp(ea) {
+  if (!ea) return '∞';
+  const d = new Date(ea) - new Date();
+  if (d <= 0) return 'Expired';
+  const days = Math.floor(d / 86400000);
+  return days > 0 ? days + 'd' : Math.floor(d / 3600000) + 'h';
+}
+
+async function loadLinks() {
+  try {
+    const r = await fetch('/api/links');
+    if (!r.ok) return;
+    const d = await r.json();
+    allLinks = d.links || [];
     renderLinks();
-  }catch(e){}
+  } catch(e) {}
 }
 
-function renderLinks(){
-  const tb=$m('ltb'), em=$m('lempty');
-  const q=($m('srch')?.value||'').toLowerCase();
-  let items=allLinks;
-  if(q)items=items.filter(l=>l.label.toLowerCase().includes(q));
-  if(!items||!items.length){tb.innerHTML='';em.style.display='block';return}
-  em.style.display='none';
-  tb.innerHTML=items.map((l,i)=>{
-    const u=l.used_bytes||0, lim=l.limit_bytes||0;
-    const pct=lim>0?Math.min(100,(u/lim)*100):0;
-    const col=pct>90?'var(--red)':pct>70?'var(--gold)':'var(--green)';
+function renderLinks() {
+  const tb = $m('ltb'), em = $m('lempty');
+  const q = ($m('srch')?.value || '').toLowerCase();
+  let items = allLinks;
+  if (q) items = items.filter(l => l.label.toLowerCase().includes(q));
+  if (!items || !items.length) {
+    tb.innerHTML = '';
+    em.style.display = 'block';
+    return;
+  }
+  em.style.display = 'none';
+  tb.innerHTML = items.map((l, i) => {
+    const u = l.used_bytes || 0, lim = l.limit_bytes || 0;
+    const pct = lim > 0 ? Math.min(100, (u/lim)*100) : 0;
+    const col = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--gold)' : 'var(--green)';
     return `<tr>
       <td style="color:var(--text3)">${i+1}</td>
       <td style="font-weight:600">${l.label}</td>
@@ -3721,43 +4003,204 @@ function renderLinks(){
   }).join('');
 }
 
-async function togLink(el){const uid=el.dataset.uid;const l=allLinks.find(x=>x.uuid===uid);if(!l)return;const na=!l.active;try{await fetch('/api/links/'+uid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:na})});l.active=na;renderLinks();loadStats()}catch(e){toast('Failed')}}
-
-function showAddMo(){$m('mo-add').classList.add('show')}
-async function createLink(){
-  const label=$m('nl').value.trim()||'New Link';
-  const v=parseFloat($m('nv').value)||0;
-  const days=parseInt($m('nd').value)||0;
-  try{
-    const r=await fetch('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,limit_value:v,limit_unit:'GB',days_valid:days})});
-    if(!r.ok)throw new Error();
-    toast('Created!');$m('mo-add').classList.remove('show');$m('nl').value='';$m('nv').value='';$m('nd').value='';await loadLinks();await loadStats();
-  }catch(e){toast('Error',true)}
+async function togLink(el) {
+  const uid = el.dataset.uid;
+  const l = allLinks.find(x => x.uuid === uid);
+  if (!l) return;
+  const na = !l.active;
+  try {
+    await fetch('/api/links/' + uid, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: na })
+    });
+    l.active = na;
+    renderLinks();
+    loadStats();
+  } catch(e) { toast('Failed'); }
 }
 
-async function delLink(uid){if(!confirm('Delete?'))return;try{await fetch('/api/links/'+uid,{method:'DELETE'});toast('Deleted');await loadLinks();await loadStats()}catch(e){toast('Error',true)}}
+function showAddMo() { $m('mo-add').classList.add('show'); }
 
-function cpLink(txt){if(!txt){toast('No link',true);return}navigator.clipboard.writeText(txt).then(()=>toast('Copied!')).catch(()=>toast('Failed',true))}
+async function createLink() {
+  const label = $m('nl').value.trim() || 'New Link';
+  const v = parseFloat($m('nv').value) || 0;
+  const days = parseInt($m('nd').value) || 0;
+  try {
+    const r = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, limit_value: v, limit_unit: 'GB', days_valid: days })
+    });
+    if (!r.ok) throw new Error();
+    toast('Created!');
+    $m('mo-add').classList.remove('show');
+    $m('nl').value = '';
+    $m('nv').value = '';
+    $m('nd').value = '';
+    await loadLinks();
+    await loadStats();
+  } catch(e) { toast('Error', true); }
+}
 
-async function loadAddrs(){try{const r=await fetch('/api/addresses');if(!r.ok)return;const d=await r.json();allAddrs=d.addresses||[];renderAddrs()}catch(e){}}
-function renderAddrs(){const el=$m('addr-list');if(!el)return;if(!allAddrs||!allAddrs.length){el.innerHTML='<div style="color:var(--text3)">No addresses</div>';return}el.innerHTML=allAddrs.map((a,i)=>`<div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px"><span>${a}</span><button class="act-btn act-del" onclick="delAddr(${i})">Delete</button></div>`).join('')}
-function showAddAddrMo(){$m('na').value='';$m('mo-addr').classList.add('show')}
-async function addAddrs(){const lines=($m('na').value||'').split('\n').map(l=>l.trim()).filter(l=>l);let ok=0;for(const a of lines){try{const r=await fetch('/api/addresses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address:a})});if(r.ok)ok++}catch(e){}}if(ok){toast('Added '+ok);$m('mo-addr').classList.remove('show');await loadAddrs()}}
-async function delAddr(i){if(!confirm('Delete?'))return;try{await fetch('/api/addresses/'+i,{method:'DELETE'});toast('Deleted');await loadAddrs()}catch(e){toast('Error',true)}}
-async function delAllAddrs(){if(!allAddrs||!allAddrs.length){toast('Empty',true);return}if(!confirm('Delete ALL?'))return;try{await fetch('/api/addresses',{method:'DELETE'});toast('All deleted');await loadAddrs()}catch(e){toast('Error',true)}}
-async function importAddrs(source){try{const r=await fetch('/api/addresses/import/'+source,{method:'POST'});if(!r.ok)throw new Error();const d=await r.json();toast((d.added||0)+' added');await loadAddrs()}catch(e){toast('Import failed',true)}}
+async function delLink(uid) {
+  if (!confirm('Delete?')) return;
+  try {
+    await fetch('/api/links/' + uid, { method: 'DELETE' });
+    toast('Deleted');
+    await loadLinks();
+    await loadStats();
+  } catch(e) { toast('Error', true); }
+}
 
-async function chgPw(){const cur=$m('cpw').value,nw=$m('npw').value;if(!cur||!nw){toast('Fill all fields',true);return}try{const r=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:nw})});if(!r.ok)throw new Error();toast('Password updated');$m('cpw').value='';$m('npw').value=''}catch(e){toast('Error',true)}}
-async function saveSettings(){const tok=$m('tg-token').value.trim(),adm=$m('tg-admin-id').value.trim();try{const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_token:tok,telegram_admin_id:adm})});if(r.ok)toast('Saved');else toast('Failed',true)}catch(e){toast('Error',true)}}
+function cpLink(txt) {
+  if (!txt) { toast('No link', true); return; }
+  navigator.clipboard.writeText(txt).then(() => toast('Copied!')).catch(() => toast('Failed', true));
+}
 
-function connectLogsWS(){if(logsWS)try{logsWS.close()}catch(e){}const token=document.cookie.split('; ').find(r=>r.startsWith('ren_session='))?.split('=')[1];if(!token)return;const protocol=location.protocol==='https:'?'wss:':'ws:';logsWS=new WebSocket(`${protocol}//${location.host}/ws/live-logs?token=${token}`);logsWS.onmessage=e=>{$m('log-container').textContent+=e.data+'\n';$m('log-container').scrollTop=$m('log-container').scrollHeight};logsWS.onerror=()=>{$m('log-container').textContent='Connection error...'};logsWS.onclose=()=>setTimeout(connectLogsWS,5000)}
+async function loadAddrs() {
+  try {
+    const r = await fetch('/api/addresses');
+    if (!r.ok) return;
+    const d = await r.json();
+    allAddrs = d.addresses || [];
+    renderAddrs();
+  } catch(e) {}
+}
 
-function checkAuth(){fetch('/api/me').then(r=>r.json()).then(d=>{if(d.authenticated){isAuth=true;loadStats();loadLinks();loadAddrs();connectLogsWS()}}).catch(()=>{})}
+function renderAddrs() {
+  const el = $m('addr-list');
+  if (!el) return;
+  if (!allAddrs || !allAddrs.length) {
+    el.innerHTML = '<div style="color:var(--text3)">No addresses</div>';
+    return;
+  }
+  el.innerHTML = allAddrs.map((a, i) => `
+    <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+      <span>${a}</span>
+      <button class="act-btn act-del" onclick="delAddr(${i})">Delete</button>
+    </div>
+  `).join('');
+}
+
+function showAddAddrMo() {
+  $m('na').value = '';
+  $m('mo-addr').classList.add('show');
+}
+
+async function addAddrs() {
+  const lines = ($m('na').value || '').split('\n').map(l => l.trim()).filter(l => l);
+  let ok = 0;
+  for (const a of lines) {
+    try {
+      const r = await fetch('/api/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: a })
+      });
+      if (r.ok) ok++;
+    } catch(e) {}
+  }
+  if (ok) {
+    toast('Added ' + ok);
+    $m('mo-addr').classList.remove('show');
+    await loadAddrs();
+  }
+}
+
+async function delAddr(i) {
+  if (!confirm('Delete?')) return;
+  try {
+    await fetch('/api/addresses/' + i, { method: 'DELETE' });
+    toast('Deleted');
+    await loadAddrs();
+  } catch(e) { toast('Error', true); }
+}
+
+async function delAllAddrs() {
+  if (!allAddrs || !allAddrs.length) { toast('Empty', true); return; }
+  if (!confirm('Delete ALL?')) return;
+  try {
+    await fetch('/api/addresses', { method: 'DELETE' });
+    toast('All deleted');
+    await loadAddrs();
+  } catch(e) { toast('Error', true); }
+}
+
+async function importAddrs(source) {
+  try {
+    const r = await fetch('/api/addresses/import/' + source, { method: 'POST' });
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    toast((d.added || 0) + ' added');
+    await loadAddrs();
+  } catch(e) { toast('Import failed', true); }
+}
+
+async function chgPw() {
+  const cur = $m('cpw').value, nw = $m('npw').value;
+  if (!cur || !nw) { toast('Fill all fields', true); return; }
+  try {
+    const r = await fetch('/api/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: cur, new_password: nw })
+    });
+    if (!r.ok) throw new Error();
+    toast('Password updated');
+    $m('cpw').value = '';
+    $m('npw').value = '';
+  } catch(e) { toast('Error', true); }
+}
+
+async function saveSettings() {
+  const tok = $m('tg-token').value.trim();
+  const adm = $m('tg-admin-id').value.trim();
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telegram_token: tok, telegram_admin_id: adm })
+    });
+    if (r.ok) toast('Saved');
+    else toast('Failed', true);
+  } catch(e) { toast('Error', true); }
+}
+
+function connectLogsWS() {
+  if (logsWS) try { logsWS.close(); } catch(e) {}
+  const token = document.cookie.split('; ').find(r => r.startsWith('ren_session='))?.split('=')[1];
+  if (!token) return;
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  logsWS = new WebSocket(`${protocol}//${location.host}/ws/live-logs?token=${token}`);
+  logsWS.onmessage = e => {
+    $m('log-container').textContent += e.data + '\n';
+    $m('log-container').scrollTop = $m('log-container').scrollHeight;
+  };
+  logsWS.onerror = () => { $m('log-container').textContent = 'Connection error...'; };
+  logsWS.onclose = () => setTimeout(connectLogsWS, 5000);
+}
+
+async function doLogout() {
+  await fetch('/api/logout', { method: 'POST' });
+  location.reload();
+}
+
+function checkAuth() {
+  fetch('/api/me').then(r => r.json()).then(d => {
+    if (d.authenticated) {
+      isAuth = true;
+      loadStats();
+      loadLinks();
+      loadAddrs();
+      connectLogsWS();
+    }
+  }).catch(() => {});
+}
 
 checkAuth();
-setInterval(loadStats,10000);
-
-$m('srch').addEventListener('input',renderLinks);
+setInterval(loadStats, 10000);
+$m('srch').addEventListener('input', renderLinks);
 </script>
 </body>
 </html>"""
