@@ -4064,6 +4064,28 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
 @media(max-width:760px){.sidebar{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;height:78px!important;min-height:78px!important;padding:7px 8px!important;display:flex!important;flex-direction:row!important;align-items:stretch!important;gap:5px!important;border-right:0!important;border-top:1px solid rgba(168,85,247,.24)!important;background:rgba(11,4,20,.97)!important;box-shadow:0 -14px 34px rgba(0,0,0,.40)!important}.sidebar::before{left:0!important;right:0!important;top:0!important;bottom:auto!important;width:auto!important;height:2px!important}.sb-brand{display:none!important}.sb-nav{flex:1!important;display:flex!important;flex-direction:row!important;align-items:stretch!important;justify-content:space-around!important;gap:4px!important;padding:0!important;overflow:visible!important}.nav-item{height:64px!important;min-width:0!important;flex:1!important;padding:7px 4px!important;border-radius:12px!important;flex-direction:column!important;justify-content:center!important;gap:4px!important}.nav-item:hover{transform:none!important}.nav-item.active::after{left:50%!important;right:auto!important;top:auto!important;bottom:4px!important;width:26px!important;height:3px!important;transform:translateX(-50%)!important}.nav-label{font-size:9px!important}.nav-icon{width:19px!important;height:19px!important}.sb-bottom{display:flex!important;flex-direction:row!important;align-items:center!important;gap:5px!important;padding:0!important;margin:0!important;border:0!important}.sb-bottom .top-actions{gap:4px!important}.top-status{display:none!important}.top-icon-btn,.top-user{width:36px!important;height:36px!important;border-radius:10px!important}.legacy-controls{display:none!important}.main{margin-left:0!important;margin-right:0!important;padding:24px 14px 98px!important}.page-title{font-size:22px!important}}
 @media(max-width:460px){.top-icon-btn,.top-user{width:32px!important;height:32px!important}.nav-label{font-size:8px!important}.nav-icon{width:18px!important;height:18px!important}.main{padding-left:10px!important;padding-right:10px!important}}
 
+/* ===== MENU ONLY: remove the partial VANTA text above the menu ===== */
+.sb-brand.menu-only{
+  width:38px!important;
+  min-width:38px!important;
+  height:38px!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.sb-brand.menu-only .menu-toggle{
+  margin:0!important;
+}
+.sb-brand.menu-only .sb-title{
+  display:none!important;
+}
+
 /* ===== VANTA COLLAPSIBLE TOP MENU ===== */
 .sidebar{
   position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
@@ -4352,8 +4374,7 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
 
   <!-- TOP NAVIGATION -->
   <aside class="sidebar" id="sb">
-    <div class="sb-brand" aria-label="VANTA Panel">
-      <div class="sb-title">VANTA</div>
+    <div class="sb-brand menu-only" aria-label="Menu">
       <button class="menu-toggle" id="menu-toggle" type="button" onclick="togglePanelMenu()" aria-expanded="false" aria-controls="panel-nav" title="Menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <span class="menu-dot"></span>
