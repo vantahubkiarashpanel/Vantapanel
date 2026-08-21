@@ -4132,6 +4132,76 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
 }
 @media(max-width:460px){.sb-brand{width:142px!important;min-width:142px!important}.sb-title{font-size:18px!important}.sb-bottom .top-actions .top-user{display:none!important}.main{padding-left:9px!important;padding-right:9px!important}}
 
+
+/* ===== V5 INBOUND + LOGIN VISUAL REDESIGN (UI ONLY) ===== */
+.inbound-toolbar-note{
+  display:flex;align-items:center;gap:13px;margin:0 0 14px;padding:13px 16px;
+  border:1px solid rgba(192,132,252,.16);border-radius:16px;
+  background:linear-gradient(100deg,rgba(124,58,237,.11),rgba(168,85,247,.035));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 12px 35px rgba(50,15,90,.10);
+}
+.inbound-toolbar-note b{display:block;font-size:12px;color:#eee;letter-spacing:.3px}
+.inbound-toolbar-note small{display:block;margin-top:3px;font-size:10px;color:rgba(255,255,255,.42)}
+.inbound-orb{width:30px;height:30px;flex:none;border-radius:10px;background:radial-gradient(circle at 35% 35%,#e9d5ff 0 8%,#c084fc 9% 28%,#7c3aed 29% 62%,rgba(124,58,237,.18) 63%);box-shadow:0 0 22px rgba(168,85,247,.38)}
+#page-inbounds .page-header{padding:5px 2px 14px}
+#page-inbounds .page-title{font-size:27px;letter-spacing:-.02em}
+#page-inbounds .page-sub{color:rgba(216,180,254,.58);letter-spacing:.7px}
+#page-inbounds .btn-gold{background:linear-gradient(135deg,#6d28d9,#a855f7 60%,#c084fc)!important;border:1px solid rgba(233,213,255,.22)!important;box-shadow:0 10px 28px rgba(124,58,237,.28)!important}
+#page-inbounds .tb{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:12px;padding:9px;border:1px solid rgba(168,85,247,.14);border-radius:16px;background:rgba(11,4,20,.48)}
+#page-inbounds .search-wrap{height:42px;border-radius:12px;background:rgba(255,255,255,.025);border-color:rgba(192,132,252,.15)}
+#page-inbounds .filter-chips{height:42px;padding:4px;border:1px solid rgba(192,132,252,.12);border-radius:12px;background:rgba(124,58,237,.055)}
+#page-inbounds .chip{border-radius:9px!important;padding:0 13px!important;color:rgba(255,255,255,.45)!important}
+#page-inbounds .chip.active{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;box-shadow:0 6px 18px rgba(124,58,237,.24)!important}
+#page-inbounds .card{border-radius:18px!important;border-color:rgba(192,132,252,.16)!important;background:linear-gradient(145deg,rgba(20,8,36,.78),rgba(7,3,15,.78))!important;box-shadow:0 20px 55px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.025)!important}
+#page-inbounds .tbl thead{background:linear-gradient(90deg,rgba(124,58,237,.12),rgba(168,85,247,.035))}
+#page-inbounds .tbl th{height:42px;color:rgba(216,180,254,.65)!important;font-size:9px;letter-spacing:1px;border-bottom:1px solid rgba(192,132,252,.12)!important}
+#page-inbounds .tbl td{height:62px;border-bottom:1px solid rgba(192,132,252,.065)!important;background:rgba(255,255,255,.008)}
+#page-inbounds .tbl tbody tr{transition:.2s ease}
+#page-inbounds .tbl tbody tr:hover td{background:rgba(168,85,247,.045)!important}
+#page-inbounds .tbl tbody tr:last-child td{border-bottom:0!important}
+#page-inbounds .act-btn{border-radius:9px!important;border:1px solid rgba(192,132,252,.16)!important;background:rgba(168,85,247,.06)!important;color:#ddd!important}
+#page-inbounds .act-btn:hover{background:rgba(168,85,247,.15)!important;border-color:rgba(192,132,252,.35)!important}
+
+/* Create/Edit dialog: a fresh two-zone editor while preserving every existing field/id. */
+#mo-add .mo-box,#mo-edit .mo-box{width:min(820px,calc(100vw - 28px))!important;max-width:820px!important;padding:24px!important;border-radius:24px!important;background:linear-gradient(145deg,rgba(24,10,42,.98),rgba(7,3,15,.98))!important;border:1px solid rgba(192,132,252,.28)!important;box-shadow:0 35px 110px rgba(0,0,0,.72),0 0 55px rgba(124,58,237,.14)!important}
+#mo-add .mo-title,#mo-edit .mo-title{font-family:'Inter','Vazirmatn',sans-serif!important;font-size:18px!important;letter-spacing:.08em!important;color:#f1e5ff!important;margin-bottom:18px!important}
+#mo-add .mo-box>.fg:nth-of-type(1),#mo-add .mo-box>.fr,#mo-add .mo-box>.fg:nth-of-type(2),#mo-add .mo-box>.fg:nth-of-type(3){position:relative}
+#mo-add .mo-box>.fg:nth-of-type(1){grid-area:remark}
+#mo-add .mo-box>.fr{grid-area:traffic}
+#mo-add .mo-box>.fg:nth-of-type(2){grid-area:ips}
+#mo-add .mo-box>.fg:nth-of-type(3){grid-area:days}
+#mo-add .mo-box{display:grid!important;grid-template-columns:1.2fr .8fr;grid-template-areas:'title title' 'remark remark' 'traffic ips' 'days days' 'vless vless' 'trojan trojan' 'port port' 'create create';gap:0 14px}
+#mo-add .mo-title{grid-area:title}
+#mo-add .mo-box>.fg:nth-of-type(4){grid-area:vless}
+#mo-add .mo-box>.fg:nth-of-type(5){grid-area:trojan}
+#mo-add .mo-box>.fg:nth-of-type(6){grid-area:port}
+#mo-add .mo-box>.btn-gold{grid-area:create}
+#mo-add .mo-box>.fg,#mo-add .mo-box>.fr{margin-bottom:12px!important}
+#mo-add .mo-box>.fg[style*="border:1px solid"]{padding:15px!important;border-radius:17px!important;background:rgba(255,255,255,.018)!important;border-color:rgba(192,132,252,.15)!important}
+#mo-add .mo-box>.fg[style*="opacity:.6"]{background:rgba(255,255,255,.012)!important;padding:11px 14px!important;border-radius:14px!important;border:1px solid rgba(192,132,252,.10)!important}
+#mo-add .mo-box>.fg[style*="opacity:.6"] .fi{height:42px!important}
+#mo-add .fi,#mo-add .fs,#mo-edit .fi,#mo-edit .fs{height:44px!important;border-radius:12px!important;background:rgba(5,2,12,.72)!important;border-color:rgba(192,132,252,.15)!important}
+#mo-add .fi:focus,#mo-add .fs:focus,#mo-edit .fi:focus,#mo-edit .fs:focus{border-color:rgba(192,132,252,.55)!important;box-shadow:0 0 0 4px rgba(168,85,247,.07),0 0 25px rgba(124,58,237,.08)!important}
+#mo-add .fl,#mo-edit .fl{color:rgba(233,213,255,.58)!important;letter-spacing:1.5px!important}
+#mo-add input[type=checkbox],#mo-edit input[type=checkbox]{accent-color:#a855f7!important}
+#mo-add .btn-gold,#mo-edit .btn-gold{background:linear-gradient(135deg,#6d28d9,#a855f7,#c084fc)!important;border:1px solid rgba(233,213,255,.22)!important;box-shadow:0 12px 28px rgba(124,58,237,.24)!important;border-radius:13px!important}
+#mo-edit .mo-box{display:block!important}
+#mo-edit .mo-box>.fg[style*="border:1px solid"]{padding:15px!important;border-radius:17px!important;background:rgba(255,255,255,.018)!important;border-color:rgba(192,132,252,.15)!important}
+#mo-add .mo-close,#mo-edit .mo-close{width:34px!important;height:34px!important;border-radius:10px!important;background:rgba(168,85,247,.08)!important;border-color:rgba(192,132,252,.18)!important;color:#e9d5ff!important}
+
+/* Login default-password shortcut */
+.default-password-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+.default-password-btn{height:34px;padding:0 11px;border:1px solid rgba(192,132,252,.16);border-radius:9px;background:rgba(168,85,247,.055);color:#e9d5ff;cursor:pointer;font:700 9px inherit;letter-spacing:.3px;display:flex;align-items:center;gap:6px;transition:.2s}
+.default-password-btn:hover{background:rgba(168,85,247,.13);border-color:rgba(192,132,252,.35);transform:translateY(-1px)}
+.default-password-hint{font-size:9px;color:rgba(255,255,255,.25);letter-spacing:1px}
+.login-submit{background:linear-gradient(135deg,#6d28d9,#a855f7,#c084fc)!important;border-color:rgba(233,213,255,.22)!important;box-shadow:0 12px 30px rgba(124,58,237,.22)!important}
+
+/* The Online pill remains; bell/user controls are intentionally absent. */
+@media(max-width:760px){
+  #page-inbounds .tb{grid-template-columns:1fr}.inbound-toolbar-note{padding:11px 12px}
+  #mo-add .mo-box{grid-template-columns:1fr;grid-template-areas:'title' 'remark' 'traffic' 'ips' 'days' 'vless' 'trojan' 'port' 'create';padding:18px!important}
+}
+
 </style>
 </head>
 <body>
@@ -4162,6 +4232,12 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
           <span class="login-input-icon">◆</span>
           <input class="fi" type="password" id="login-pw" placeholder="Enter your access key" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
           <button type="button" class="login-reveal" onclick="toggleLoginPassword()" aria-label="Show or hide password">SHOW</button>
+        </div>
+        <div class="default-password-row">
+          <button type="button" class="default-password-btn" onclick="fillDefaultPassword()">
+            <span>⚡</span><span data-en="Use default password" data-fa="استفاده از رمز پیش‌فرض">Use default password</span>
+          </button>
+          <span class="default-password-hint">admin</span>
         </div>
       </div>
       <button class="btn btn-gold login-submit" onclick="doLogin()">
@@ -4245,13 +4321,6 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
     <div class="sb-bottom">
       <div class="top-actions">
         <div class="top-status"><span class="top-status-dot"></span><span data-en="Online" data-fa="آنلاین">Online</span></div>
-        <button class="top-icon-btn" onclick="showPage('notifications')" title="Notifications" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10"/><path d="M10 21h4"/></svg>
-          <span class="nav-badge" id="top-notif-badge" style="display:none;top:1px;right:1px">0</span>
-        </button>
-        <button class="top-user" onclick="doLogout()" title="Logout" aria-label="Logout">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21c.8-4 3.2-6 7-6s6.2 2 7 6"/></svg>
-        </button>
       </div>
       <div class="legacy-controls">
         <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn-desk">🌙 Theme</button>
@@ -4313,7 +4382,11 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
           <div class="page-title" data-en="Inbounds" data-fa="اینباندها">Inbounds</div>
           <div class="page-sub" data-en="VLESS over WebSocket · TLS" data-fa="VLESS روی WebSocket با TLS">VLESS over WebSocket · TLS</div>
         </div>
-        <button class="btn btn-gold" onclick="showAddMo()" data-en="+ Add" data-fa="+ افزودن">+ Add</button>
+        <button class="btn btn-gold" onclick="showAddMo()" data-en="+ New Inbound" data-fa="+ اینباند جدید">+ New Inbound</button>
+      </div>
+      <div class="inbound-toolbar-note">
+        <span class="inbound-orb"></span>
+        <div><b data-en="Connection Center" data-fa="مرکز اتصال">Connection Center</b><small data-en="Create and manage connections without changing your existing setup." data-fa="اتصال‌ها را بدون تغییر در ساختار فعلی ایجاد و مدیریت کنید.">Create and manage connections without changing your existing setup.</small></div>
       </div>
       <div class="tb">
         <div class="search-wrap">
@@ -4787,6 +4860,7 @@ function showDashboard(){
 }
 
 function toggleLoginPassword(){const input=$m('login-pw');const btn=document.querySelector('.login-reveal');if(!input)return;const showing=input.type==='text';input.type=showing?'password':'text';if(btn)btn.textContent=showing?'SHOW':'HIDE'}
+function fillDefaultPassword(){const input=$m('login-pw');if(!input)return;input.value='admin';input.focus();input.type='password';const btn=document.querySelector('.login-reveal');if(btn)btn.textContent='SHOW'}
     async function doLogin(){
   const pw=$m('login-pw').value;
   $m('login-err').style.display='none';
