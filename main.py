@@ -2508,7 +2508,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     <div class="sub-hero-head">
         <div>
             <div class="sub-eyebrow"><span class="sub-live-dot"></span> VANTA</div>
-            <div class="sub-brandline"><span class="brand-mark" aria-hidden="true">V</span><span class="header-title">VANTA</span></div>
+            <div class="sub-brandline"><span class="header-title">VANTA</span></div>
             <div class="header-sub">VANTA · {link['label']} · private access portal</div>
         </div>
         <div class="hero-chip">{status_text}</div>
@@ -4218,6 +4218,63 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
 }
 
 
+/* ===== VANTA COMMAND DECK / INBOUND 2026 VISUAL PASS ===== */
+.dash-hero{padding-top:72px!important}
+.dash-brand-center{position:absolute!important;top:16px!important;left:50%!important;transform:translateX(-50%)!important;z-index:2!important;font-size:18px!important;font-weight:900!important;letter-spacing:7px!important;color:#fff!important;text-shadow:0 0 18px rgba(192,132,252,.72),0 0 42px rgba(124,58,237,.42)!important;white-space:nowrap!important;opacity:.96!important}
+.dash-brand-center::before,.dash-brand-center::after{content:""!important;position:absolute!important;top:50%!important;width:74px!important;height:1px!important;background:linear-gradient(90deg,transparent,rgba(192,132,252,.7))!important;box-shadow:0 0 10px rgba(168,85,247,.28)!important}
+.dash-brand-center::before{right:calc(100% + 16px)!important}
+.dash-brand-center::after{left:calc(100% + 16px)!important;transform:scaleX(-1)!important}
+
+/* Subscription: VANTA text only, no purple V tile */
+.sub-brandline{gap:0!important;margin-top:9px!important}
+.sub-brandline .header-title{display:block!important}
+
+/* Inbounds: completely new command-console composition */
+#page-inbounds{position:relative!important}
+#page-inbounds::before{content:""!important;position:absolute!important;inset:-30px -34px auto!important;height:360px!important;pointer-events:none!important;background:radial-gradient(circle at 16% 10%,rgba(124,58,237,.17),transparent 30%),radial-gradient(circle at 86% 0%,rgba(192,132,252,.13),transparent 28%)!important;z-index:-1!important}
+#page-inbounds .inbound-hero{min-height:178px!important;margin-bottom:14px!important;padding:28px 30px!important;align-items:center!important;border-radius:26px!important;border:1px solid rgba(192,132,252,.22)!important;background:linear-gradient(120deg,rgba(25,9,47,.98),rgba(9,4,20,.96) 58%,rgba(33,11,56,.94))!important;box-shadow:0 26px 70px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.055)!important}
+#page-inbounds .inbound-hero::before{content:""!important;position:absolute!important;inset:0!important;background-image:linear-gradient(rgba(192,132,252,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(192,132,252,.035) 1px,transparent 1px)!important;background-size:34px 34px!important;mask-image:linear-gradient(to right,#000,transparent 90%)!important;pointer-events:none!important}
+#page-inbounds .inbound-hero::after{right:-90px!important;top:-120px!important;width:330px!important;height:330px!important;background:radial-gradient(circle,rgba(168,85,247,.26),rgba(124,58,237,.08) 42%,transparent 70%)!important;filter:blur(2px)!important}
+#page-inbounds .inbound-kicker{position:relative!important;z-index:2!important;padding:6px 10px!important;border:1px solid rgba(192,132,252,.18)!important;border-radius:999px!important;background:rgba(168,85,247,.07)!important;width:max-content!important}
+#page-inbounds .inbound-kicker span:first-child{width:6px!important;height:6px!important}
+#page-inbounds .inbound-title{position:relative!important;z-index:2!important;font-size:36px!important;letter-spacing:-1.4px!important;margin-top:13px!important}
+#page-inbounds .inbound-sub{position:relative!important;z-index:2!important;max-width:720px!important;font-size:12px!important;color:rgba(255,255,255,.48)!important}
+#page-inbounds .inbound-new{height:52px!important;min-width:170px!important;border-radius:15px!important;font-size:12px!important;box-shadow:0 14px 34px rgba(124,58,237,.30)!important}
+
+.inbound-intel{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;margin-bottom:14px!important}
+.intel-card{position:relative!important;display:flex!important;align-items:center!important;gap:12px!important;min-height:82px!important;padding:14px 15px!important;border:1px solid rgba(192,132,252,.13)!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(20,8,38,.92),rgba(8,3,17,.96))!important;box-shadow:0 15px 35px rgba(0,0,0,.20)!important;overflow:hidden!important;transition:.22s ease!important}
+.intel-card::after{content:""!important;position:absolute!important;right:-30px!important;bottom:-38px!important;width:90px!important;height:90px!important;border-radius:50%!important;background:radial-gradient(circle,rgba(168,85,247,.16),transparent 70%)!important}
+.intel-card:hover{transform:translateY(-2px)!important;border-color:rgba(192,132,252,.28)!important;box-shadow:0 20px 42px rgba(124,58,237,.13)!important}
+.intel-card .intel-icon{width:38px!important;height:38px!important;flex:0 0 38px!important;display:grid!important;place-items:center!important;border-radius:12px!important;color:#e9d5ff!important;font-size:15px!important;background:linear-gradient(145deg,rgba(124,58,237,.28),rgba(168,85,247,.08))!important;border:1px solid rgba(192,132,252,.18)!important;box-shadow:inset 0 0 16px rgba(168,85,247,.08)!important}
+.intel-card>div:last-child{position:relative!important;z-index:1!important;min-width:0!important}
+.intel-card span{display:block!important;font-size:8px!important;font-weight:900!important;letter-spacing:1.4px!important;color:rgba(216,180,254,.48)!important}
+.intel-card b{display:block!important;margin-top:4px!important;font-size:20px!important;line-height:1!important;color:#fff!important;letter-spacing:-.4px!important}
+.intel-card small{display:block!important;margin-top:4px!important;font-size:8px!important;color:rgba(255,255,255,.25)!important}
+.intel-primary{border-color:rgba(168,85,247,.24)!important;background:linear-gradient(145deg,rgba(34,12,62,.94),rgba(10,4,21,.96))!important}
+.intel-primary b{color:#d8b4fe!important}
+.intel-status .intel-scan{width:38px!important;height:38px!important;display:flex!important;align-items:flex-end!important;justify-content:center!important;gap:4px!important;padding:8px!important;border-radius:12px!important;background:rgba(74,222,128,.05)!important;border:1px solid rgba(74,222,128,.16)!important}
+.intel-scan i{display:block!important;width:4px!important;border-radius:4px!important;background:#4ade80!important;box-shadow:0 0 10px rgba(74,222,128,.7)!important;animation:intelPulse 1.2s ease-in-out infinite!important}
+.intel-scan i:nth-child(1){height:9px!important}.intel-scan i:nth-child(2){height:18px!important;animation-delay:.18s!important}.intel-scan i:nth-child(3){height:13px!important;animation-delay:.36s!important}
+@keyframes intelPulse{0%,100%{opacity:.35;transform:scaleY(.72)}50%{opacity:1;transform:scaleY(1)}}
+
+#page-inbounds .inbound-tools{grid-template-columns:minmax(0,1fr) auto!important;gap:10px!important;padding:8px!important;margin-bottom:14px!important;border-radius:18px!important;background:rgba(6,2,14,.68)!important;border:1px solid rgba(192,132,252,.13)!important;box-shadow:0 14px 36px rgba(0,0,0,.16)!important}
+#page-inbounds .inbound-search{height:48px!important;border-radius:13px!important;background:rgba(255,255,255,.022)!important}
+#page-inbounds .inbound-filters{height:48px!important;border-radius:13px!important}
+#page-inbounds .inbound-board{border-radius:24px!important;background:linear-gradient(145deg,rgba(18,7,33,.97),rgba(6,2,13,.99))!important;border:1px solid rgba(192,132,252,.20)!important;box-shadow:0 28px 75px rgba(0,0,0,.34)!important}
+#page-inbounds .inbound-board-head{padding:19px 22px!important;background:linear-gradient(90deg,rgba(124,58,237,.14),rgba(168,85,247,.035),transparent)!important;border-bottom:1px solid rgba(192,132,252,.11)!important}
+#page-inbounds .inbound-board-head>div:first-child::before{content:"01"!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;width:27px!important;height:27px!important;margin-right:9px!important;vertical-align:middle!important;border-radius:9px!important;background:rgba(168,85,247,.10)!important;border:1px solid rgba(192,132,252,.16)!important;color:#c084fc!important;font-size:9px!important;font-weight:900!important}
+#page-inbounds .route-legend{padding:7px 10px!important;border:1px solid rgba(74,222,128,.14)!important;border-radius:999px!important;background:rgba(74,222,128,.04)!important}
+#page-inbounds .tbl-wrap{padding:9px 12px 14px!important}
+#page-inbounds .tbl{border-spacing:0 8px!important}
+#page-inbounds .tbl th{height:34px!important;color:rgba(216,180,254,.40)!important;font-size:8px!important;letter-spacing:1.7px!important}
+#page-inbounds .tbl td{height:66px!important;background:linear-gradient(90deg,rgba(255,255,255,.015),rgba(168,85,247,.012))!important;border-top:1px solid rgba(192,132,252,.08)!important;border-bottom:1px solid rgba(192,132,252,.08)!important}
+#page-inbounds .tbl tbody tr:hover td{background:linear-gradient(90deg,rgba(124,58,237,.10),rgba(168,85,247,.025))!important;border-top-color:rgba(192,132,252,.20)!important;border-bottom-color:rgba(192,132,252,.20)!important}
+#page-inbounds .act-btn{padding:7px 10px!important;border-radius:10px!important;font-size:9px!important;backdrop-filter:blur(8px)!important}
+
+@media(max-width:980px){.inbound-intel{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:760px){.dash-hero{padding-top:62px!important}.dash-brand-center{top:13px!important;font-size:15px!important;letter-spacing:5px!important}.dash-brand-center::before,.dash-brand-center::after{width:42px!important}.dash-brand-center::before{right:calc(100% + 10px)!important}.dash-brand-center::after{left:calc(100% + 10px)!important}.inbound-intel{grid-template-columns:1fr 1fr!important}.intel-card{min-height:76px!important;padding:12px!important}.intel-card b{font-size:18px!important}.intel-card small{font-size:7px!important}.intel-card .intel-icon,.intel-status .intel-scan{width:34px!important;height:34px!important;flex-basis:34px!important}.#page-inbounds .inbound-hero{padding:22px!important}.#page-inbounds .inbound-title{font-size:29px!important}.#page-inbounds .inbound-new{width:100%!important}.#page-inbounds .inbound-tools{grid-template-columns:1fr!important}}
+@media(max-width:460px){.inbound-intel{grid-template-columns:1fr!important}.dash-brand-center{font-size:14px!important}.dash-brand-center::before,.dash-brand-center::after{display:none!important}}
+
 /* ===== FINAL VANTA BRANDING OVERRIDES ===== */
 .sub-eyebrow{color:#e9d5ff!important;font-size:10px!important;letter-spacing:3px!important}.sub-brandline .header-title{font-size:30px!important;color:#fff!important;background:none!important;-webkit-text-fill-color:#fff!important;letter-spacing:4px!important;text-shadow:0 0 18px rgba(192,132,252,.28)!important}.header-sub{color:rgba(255,255,255,.38)!important}
 #page-inbounds .m-cards{display:none!important;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;padding:14px}
@@ -4358,6 +4415,7 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
     <!-- Dashboard -->
     <section class="page active" id="page-dashboard">
       <div class="dash-hero">
+        <div class="dash-brand-center" aria-label="VANTA">VANTA</div>
         <div class="dash-hero-glow"></div>
         <div class="dash-hero-copy">
           <div class="dash-kicker"><span class="dash-pulse"></span><span data-en="VANTA CONTROL CENTER" data-fa="مرکز کنترل VANTA">VANTA CONTROL CENTER</span></div>
@@ -4402,6 +4460,24 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
           <div class="inbound-sub" data-en="Build, monitor and manage every gateway connection from a cleaner workspace." data-fa="تمام اتصال‌های گیت‌وی را از یک فضای مرتب بسازید، پایش کنید و مدیریت کنید.">Build, monitor and manage every gateway connection from a cleaner workspace.</div>
         </div>
         <button class="btn btn-gold inbound-new" onclick="showAddMo()" data-en="+ New Inbound" data-fa="+ اینباند جدید">+ New Inbound</button>
+      </div>
+      <div class="inbound-intel" aria-label="Inbound overview">
+        <div class="intel-card intel-primary">
+          <div class="intel-icon">◈</div>
+          <div><span data-en="ROUTE MATRIX" data-fa="ماتریس مسیرها">ROUTE MATRIX</span><b id="inbound-total-count">0</b><small data-en="managed gateways" data-fa="گیت‌وی مدیریت‌شده">managed gateways</small></div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-icon">●</div>
+          <div><span data-en="ACTIVE NOW" data-fa="فعال در لحظه">ACTIVE NOW</span><b id="inbound-active-count">0</b><small data-en="live routes" data-fa="مسیر زنده">live routes</small></div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-icon">⌁</div>
+          <div><span data-en="SECURE LINK" data-fa="لینک امن">SECURE LINK</span><b>TLS</b><small data-en="encrypted transport" data-fa="انتقال رمزنگاری‌شده">encrypted transport</small></div>
+        </div>
+        <div class="intel-card intel-status">
+          <div class="intel-scan"><i></i><i></i><i></i></div>
+          <div><span data-en="CONTROL MODE" data-fa="حالت کنترل">CONTROL MODE</span><b>LIVE</b><small data-en="changes apply instantly" data-fa="تغییرات فوری اعمال می‌شوند">changes apply instantly</small></div>
+        </div>
       </div>
       <div class="inbound-tools">
         <div class="inbound-search search-wrap">
@@ -5001,6 +5077,10 @@ function renderLinks(links){
   const tb=$m('ltb');
   const em=$m('lempty');
   const mc=$m('mcards');
+  const totalCounter=$m('inbound-total-count');
+  const activeCounter=$m('inbound-active-count');
+  if(totalCounter) totalCounter.textContent=(links||[]).length;
+  if(activeCounter) activeCounter.textContent=(links||[]).filter(x=>x.active).length;
   if(!links||!links.length){
     tb.innerHTML='';mc.innerHTML='';em.style.display='block';
     em.textContent=em.getAttribute('data-'+lang)||'No inbounds found';
