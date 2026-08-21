@@ -2481,6 +2481,18 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         .ping-btn{{border-color:rgba(168,85,247,.24)!important;background:rgba(168,85,247,.08)!important;color:#c084fc!important;border-radius:14px!important}}
         .mo{{background:rgba(5,1,12,.84)!important}}.mo-box{{background:linear-gradient(145deg,rgba(24,11,43,.99),rgba(10,5,21,.99))!important;border-color:rgba(192,132,252,.35)!important;box-shadow:0 28px 90px rgba(0,0,0,.65),0 0 38px rgba(124,58,237,.20)!important;border-radius:22px!important}}.mo-title{{color:#c084fc!important}}
         @media(max-width:520px){{.platform-chips{{grid-template-columns:repeat(2,1fr)!important}}.container{{padding-left:12px!important;padding-right:12px!important}}}}
+
+/* ===== SUBSCRIPTION V4 — new visual system ===== */
+.container{{max-width:980px!important;padding:30px 18px 56px!important}}
+.sub-hero-head{{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:22px 4px 20px!important;border-bottom:1px solid rgba(192,132,252,.12)!important;margin-bottom:16px!important}}
+.sub-brandline{{display:flex;align-items:center;gap:10px;margin-top:9px}}.sub-brandline .header-title{{font-size:26px!important}}.sub-eyebrow{{font-size:9px;font-weight:900;letter-spacing:2.4px;color:#c084fc;display:flex;align-items:center;gap:7px}}.sub-live-dot{{width:7px;height:7px;border-radius:50%;background:#c084fc;box-shadow:0 0 12px rgba(192,132,252,.95)}}
+.hero-chip{{padding:9px 13px;border-radius:999px;background:rgba(168,85,247,.10);border:1px solid rgba(192,132,252,.24);color:#e9d5ff;font-size:10px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;white-space:nowrap}}
+.sub-hero-grid{{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);gap:14px;align-items:stretch;margin-bottom:14px}}.sub-hero-grid .ring-card{{margin-bottom:0!important;display:flex;flex-direction:column;justify-content:center;min-height:340px}}
+.sub-overview-card{{border:1px solid rgba(168,85,247,.18);border-radius:20px;padding:24px;background:linear-gradient(145deg,rgba(23,10,41,.96),rgba(10,4,20,.98));box-shadow:0 18px 50px rgba(0,0,0,.35);position:relative;overflow:hidden}}.sub-overview-card::before{{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,#7c3aed,#c084fc,transparent);opacity:.85}}.overview-kicker{{font-size:9px;font-weight:900;letter-spacing:2px;color:rgba(216,180,254,.55);margin-bottom:8px}}.overview-title{{font-size:22px;font-weight:900;color:#fff;margin-bottom:24px;word-break:break-word}}.overview-line{{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid rgba(168,85,247,.10);font-size:11px;color:rgba(255,255,255,.48)}}.overview-line:last-of-type{{border-bottom:0}}.overview-line b{{color:#e9d5ff;text-align:right}}.overview-note{{margin-top:22px;padding:13px;border-radius:13px;background:rgba(124,58,237,.08);border:1px solid rgba(168,85,247,.13);font-size:10px;line-height:1.7;color:rgba(255,255,255,.48)}}
+.sub-actions-card{{display:grid!important;grid-template-columns:1fr auto;align-items:center;gap:18px;text-align:left!important;padding:18px!important;border-radius:18px!important;background:linear-gradient(135deg,rgba(124,58,237,.14),rgba(20,10,37,.92))!important}}.sub-actions-card .action-kicker{{grid-column:1/-1;margin:0!important}}.sub-actions-card .sub-link-display{{margin:0!important}}.sub-action-grid{{display:flex!important;gap:8px!important;margin:0!important}}.sub-action-btn{{min-width:142px!important}}.sub-action-btn.primary{{min-width:155px!important}}
+.section-label{{margin-top:24px!important}}.platform-chips{{grid-template-columns:repeat(4,1fr)!important}}.apps-grid{{grid-template-columns:repeat(4,1fr)!important}}.configs-card{{border-radius:18px!important;margin-top:6px!important}}.footer-links{{border-top:1px solid rgba(168,85,247,.10);margin-top:18px;padding-top:18px}}
+@media(max-width:760px){{.container{{max-width:620px!important;padding:20px 12px 42px!important}}.sub-hero-head{{align-items:flex-start;flex-direction:column}}.sub-hero-grid{{grid-template-columns:1fr}}.sub-hero-grid .ring-card{{min-height:300px}}.sub-actions-card{{grid-template-columns:1fr!important}}.sub-actions-card .sub-action-grid{{display:grid!important;grid-template-columns:1fr 1fr!important}}.sub-action-btn,.sub-action-btn.primary{{min-width:0!important;width:100%!important}}.platform-chips{{grid-template-columns:repeat(2,1fr)!important}}.apps-grid{{grid-template-columns:repeat(2,1fr)!important}}}}
+@media(max-width:460px){{.sub-brandline .header-title{{font-size:22px!important}}.sub-actions-card .sub-action-grid{{grid-template-columns:1fr!important}}.overview-line{{align-items:flex-start;flex-direction:column;gap:4px}}.overview-line b{{text-align:left}}.hero-chip{{align-self:stretch;text-align:center}}}}
 </style>
 </head>
 <body>
@@ -2492,16 +2504,18 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
 
 <div class="container">
 
-    <!-- Header -->
-    <div class="header">
-        <div class="header-logo">
-            <span class="brand-mark" aria-hidden="true">V</span>
-            <span class="header-title">VANTA</span>
+    <!-- New subscription hero -->
+    <div class="sub-hero-head">
+        <div>
+            <div class="sub-eyebrow"><span class="sub-live-dot"></span> SECURE SUBSCRIPTION</div>
+            <div class="sub-brandline"><span class="brand-mark" aria-hidden="true">V</span><span class="header-title">VANTA</span></div>
+            <div class="header-sub">{link['label']} · private access portal</div>
         </div>
-        <div class="header-sub">{link['label']} · Connection Status</div>
+        <div class="hero-chip">{status_text}</div>
     </div>
 
-    <!-- Usage Ring Card -->
+    <div class="sub-hero-grid">
+    <!-- Usage / account overview -->
     <div class="ring-card">
         <div class="ring-wrap">
             <svg class="ring-svg" viewBox="0 0 160 160">
@@ -2536,6 +2550,16 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
                 <div class="info-box-sub">{expiry_date_str}</div>
             </div>
         </div>
+    </div>
+
+    <div class="sub-overview-card">
+        <div class="overview-kicker">ACCOUNT OVERVIEW</div>
+        <div class="overview-title">{link['label']}</div>
+        <div class="overview-line"><span>Connection</span><b>{status_text}</b></div>
+        <div class="overview-line"><span>Expiration</span><b>{expiry_str}</b></div>
+        <div class="overview-line"><span>Valid until</span><b>{expiry_date_str}</b></div>
+        <div class="overview-note">Your subscription link stays private. Use the actions below to copy or reveal the QR code.</div>
+    </div>
     </div>
 
     <!-- Subscription Actions -->
@@ -2582,10 +2606,6 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
         <a href="https://t.me/Vantahub1792" target="_blank" class="footer-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
             Telegram Channel
-        </a>
-        <a href="https://t.me/chef_vpn" target="_blank" class="footer-link">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.032 9.57c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.895.651z"/></svg>
-            Chef
         </a>
         <a href="https://t.me/kiarash1792" target="_blank" class="footer-link">
             @kiarash1792
@@ -4045,40 +4065,73 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
 @media(max-width:760px){.sidebar{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;height:78px!important;min-height:78px!important;padding:7px 8px!important;display:flex!important;flex-direction:row!important;align-items:stretch!important;gap:5px!important;border-right:0!important;border-top:1px solid rgba(168,85,247,.24)!important;background:rgba(11,4,20,.97)!important;box-shadow:0 -14px 34px rgba(0,0,0,.40)!important}.sidebar::before{left:0!important;right:0!important;top:0!important;bottom:auto!important;width:auto!important;height:2px!important}.sb-brand{display:none!important}.sb-nav{flex:1!important;display:flex!important;flex-direction:row!important;align-items:stretch!important;justify-content:space-around!important;gap:4px!important;padding:0!important;overflow:visible!important}.nav-item{height:64px!important;min-width:0!important;flex:1!important;padding:7px 4px!important;border-radius:12px!important;flex-direction:column!important;justify-content:center!important;gap:4px!important}.nav-item:hover{transform:none!important}.nav-item.active::after{left:50%!important;right:auto!important;top:auto!important;bottom:4px!important;width:26px!important;height:3px!important;transform:translateX(-50%)!important}.nav-label{font-size:9px!important}.nav-icon{width:19px!important;height:19px!important}.sb-bottom{display:flex!important;flex-direction:row!important;align-items:center!important;gap:5px!important;padding:0!important;margin:0!important;border:0!important}.sb-bottom .top-actions{gap:4px!important}.top-status{display:none!important}.top-icon-btn,.top-user{width:36px!important;height:36px!important;border-radius:10px!important}.legacy-controls{display:none!important}.main{margin-left:0!important;margin-right:0!important;padding:24px 14px 98px!important}.page-title{font-size:22px!important}}
 @media(max-width:460px){.top-icon-btn,.top-user{width:32px!important;height:32px!important}.nav-label{font-size:8px!important}.nav-icon{width:18px!important;height:18px!important}.main{padding-left:10px!important;padding-right:10px!important}}
 
-/* ===== MOBILE: KEEP THE MAIN NAV ON TOP ===== */
-@media(max-width:760px){
-  .sidebar{
-    position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
-    width:100%!important;height:70px!important;min-height:70px!important;padding:0 10px!important;
-    display:flex!important;flex-direction:row!important;align-items:center!important;gap:8px!important;
-    border-right:0!important;border-left:0!important;border-top:0!important;
-    border-bottom:1px solid rgba(168,85,247,.24)!important;
-    background:rgba(11,4,20,.97)!important;
-    box-shadow:0 14px 34px rgba(0,0,0,.38)!important;
-  }
-  .sidebar::before{left:0!important;right:0!important;top:auto!important;bottom:0!important;width:auto!important;height:2px!important}
-  .sb-brand{display:flex!important;width:92px!important;min-width:92px!important;height:46px!important;padding:0 8px!important}
-  .sb-title{font-size:20px!important}
-  .sb-nav{flex:1!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:3px!important;padding:0!important;overflow-x:auto!important;overflow-y:hidden!important}
-  .nav-item{height:44px!important;min-width:76px!important;flex:0 0 auto!important;padding:0 8px!important;border-radius:11px!important;flex-direction:row!important;gap:6px!important}
-  .nav-item.active::after{left:12px!important;right:12px!important;top:auto!important;bottom:-1px!important;width:auto!important;height:2px!important;transform:none!important}
-  .nav-label{display:inline!important;font-size:9px!important}
-  .nav-icon{width:16px!important;height:16px!important}
-  .sb-bottom{display:flex!important;flex-direction:row!important;align-items:center!important;gap:4px!important;margin-left:auto!important}
-  .sb-bottom .top-actions{gap:4px!important}
-  .top-status{display:none!important}
-  .top-icon-btn,.top-user{width:34px!important;height:34px!important;border-radius:10px!important}
-  .main{margin-left:0!important;margin-right:0!important;padding:88px 12px 30px!important}
+/* ===== VANTA COLLAPSIBLE TOP MENU ===== */
+.sidebar{
+  position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:auto!important;
+  width:100%!important;height:76px!important;min-height:76px!important;padding:0 18px!important;
+  display:flex!important;flex-direction:row!important;align-items:center!important;gap:12px!important;
+  background:rgba(7,3,15,.90)!important;border:0!important;border-bottom:1px solid rgba(168,85,247,.22)!important;
+  box-shadow:0 16px 42px rgba(0,0,0,.34)!important;backdrop-filter:blur(24px)!important;
+  -webkit-backdrop-filter:blur(24px)!important;z-index:1000!important;
 }
-@media(max-width:460px){
-  .sb-brand{width:70px!important;min-width:70px!important}
-  .sb-title{font-size:17px!important}
-  .nav-item{min-width:58px!important;padding:0 6px!important}
-  .nav-label{font-size:8px!important}
-  .nav-icon{width:15px!important;height:15px!important}
-  .sb-bottom{display:none!important}
-  .main{padding-top:84px!important}
+.sidebar::before{content:""!important;position:absolute!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;width:auto!important;height:2px!important;background:linear-gradient(90deg,transparent,#7c3aed,#c084fc,#7c3aed,transparent)!important;opacity:.85!important}
+.sidebar::after{display:none!important}
+.sb-brand{
+  width:176px!important;min-width:176px!important;height:50px!important;padding:0 8px 0 16px!important;margin:0!important;
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  border:1px solid rgba(168,85,247,.28)!important;border-radius:16px!important;
+  background:linear-gradient(135deg,rgba(124,58,237,.20),rgba(168,85,247,.06))!important;
+  box-shadow:0 8px 26px rgba(124,58,237,.12),inset 0 1px 0 rgba(255,255,255,.06)!important;
 }
+.sb-title{font-family:'Inter','Vazirmatn',sans-serif!important;font-size:23px!important;font-weight:900!important;letter-spacing:.02em!important;color:#fff!important;background:none!important;-webkit-text-fill-color:#fff!important}
+.sb-title::after{content:""!important;display:inline-block!important;width:7px!important;height:7px!important;border-radius:50%!important;margin-left:7px!important;vertical-align:middle!important;background:#c084fc!important;box-shadow:0 0 16px rgba(192,132,252,.95)!important}
+.menu-toggle{
+  width:38px!important;height:38px!important;flex:0 0 38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  border:1px solid rgba(192,132,252,.28)!important;border-radius:11px!important;background:rgba(168,85,247,.09)!important;color:#e9d5ff!important;
+  cursor:pointer!important;transition:all .2s ease!important;padding:0!important;position:relative!important
+}
+.menu-toggle:hover{background:rgba(168,85,247,.18)!important;border-color:rgba(192,132,252,.55)!important;transform:translateY(-1px)!important;box-shadow:0 8px 22px rgba(124,58,237,.18)!important}
+.menu-toggle svg{width:18px!important;height:18px!important;transition:transform .2s ease!important}
+.sidebar.menu-open .menu-toggle svg{transform:rotate(90deg)!important}
+.menu-toggle .menu-dot{position:absolute!important;top:5px!important;right:5px!important;width:5px!important;height:5px!important;border-radius:50%!important;background:#c084fc!important;box-shadow:0 0 8px rgba(192,132,252,.9)!important}
+.sb-nav{
+  position:absolute!important;left:18px!important;right:18px!important;top:86px!important;
+  display:grid!important;grid-template-columns:repeat(7,minmax(96px,1fr))!important;gap:8px!important;padding:10px!important;
+  max-height:0!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;overflow:hidden!important;
+  transform:translateY(-8px) scale(.985)!important;transform-origin:top center!important;
+  background:linear-gradient(145deg,rgba(24,11,43,.98),rgba(9,4,18,.98))!important;
+  border:1px solid rgba(192,132,252,.26)!important;border-radius:18px!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.58),0 0 35px rgba(124,58,237,.16)!important;
+  transition:max-height .24s ease,opacity .18s ease,transform .24s ease,visibility .24s ease!important;
+  overflow-y:auto!important;scrollbar-width:thin!important;z-index:1001!important
+}
+.sidebar.menu-open .sb-nav{max-height:320px!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateY(0) scale(1)!important}
+.sb-nav::-webkit-scrollbar{width:5px!important}.sb-nav::-webkit-scrollbar-thumb{background:rgba(168,85,247,.35)!important;border-radius:10px!important}
+.nav-item{
+  position:relative!important;min-width:0!important;width:auto!important;height:54px!important;padding:0 13px!important;
+  display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;
+  border:1px solid rgba(168,85,247,.10)!important;border-radius:13px!important;color:rgba(255,255,255,.62)!important;
+  background:rgba(255,255,255,.025)!important;font-family:inherit!important;font-size:12px!important;font-weight:700!important;cursor:pointer!important;
+  transition:all .2s ease!important
+}
+.nav-item:hover{transform:translateY(-1px)!important;color:#fff!important;background:rgba(139,92,246,.12)!important;border-color:rgba(192,132,252,.28)!important;box-shadow:0 8px 22px rgba(124,58,237,.12)!important}
+.nav-item.active{color:#fff!important;background:linear-gradient(135deg,rgba(124,58,237,.30),rgba(168,85,247,.14))!important;border-color:rgba(192,132,252,.48)!important;box-shadow:0 10px 26px rgba(124,58,237,.18),inset 0 1px 0 rgba(255,255,255,.06)!important}
+.nav-item.active::after{content:""!important;position:absolute!important;left:12px!important;right:12px!important;bottom:6px!important;height:2px!important;border-radius:4px!important;background:linear-gradient(90deg,#7c3aed,#c084fc)!important;box-shadow:0 0 12px rgba(192,132,252,.8)!important}
+.nav-icon{width:18px!important;height:18px!important;color:currentColor!important;flex:none!important}.nav-label{font-size:12px!important;font-weight:700!important;white-space:nowrap!important}
+.nav-badge{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;border:1px solid rgba(255,255,255,.18)!important;box-shadow:0 0 12px rgba(139,92,246,.35)!important}
+.sb-bottom{display:flex!important;align-items:center!important;gap:8px!important;margin-left:auto!important}.sb-bottom .top-actions{display:flex!important;align-items:center!important;gap:8px!important;margin:0!important}.legacy-controls{display:none!important}
+.top-status{height:42px!important;padding:0 12px!important;border:1px solid rgba(168,85,247,.18)!important;border-radius:12px!important;background:rgba(139,92,246,.07)!important}.top-status-dot{background:#c084fc!important;box-shadow:0 0 10px rgba(192,132,252,.75)!important}
+.top-icon-btn,.top-user{width:42px!important;height:42px!important;border-radius:12px!important;border:1px solid rgba(168,85,247,.20)!important;background:rgba(139,92,246,.07)!important;color:#fff!important}.top-icon-btn:hover,.top-user:hover{background:rgba(139,92,246,.18)!important;border-color:rgba(192,132,252,.45)!important}
+.main{margin-left:0!important;margin-right:0!important;padding-top:102px!important;padding-left:30px!important;padding-right:30px!important;padding-bottom:48px!important}
+@media(max-width:980px){.sb-nav{grid-template-columns:repeat(4,minmax(120px,1fr))!important}.top-status{display:none!important}}
+@media(max-width:700px){
+  .sidebar{height:68px!important;min-height:68px!important;padding:0 10px!important}.sb-brand{width:156px!important;min-width:156px!important;height:46px!important}.sb-title{font-size:20px!important}
+  .sb-nav{left:10px!important;right:10px!important;top:78px!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:9px!important;max-height:0!important}
+  .sidebar.menu-open .sb-nav{max-height:420px!important}.nav-item{height:50px!important;padding:0 11px!important}.nav-label{font-size:11px!important}.nav-icon{width:16px!important;height:16px!important}
+  .sb-bottom{gap:4px!important}.top-icon-btn,.top-user{width:38px!important;height:38px!important}.main{padding:84px 12px 30px!important}
+}
+@media(max-width:460px){.sb-brand{width:142px!important;min-width:142px!important}.sb-title{font-size:18px!important}.sb-bottom .top-actions .top-user{display:none!important}.main{padding-left:9px!important;padding-right:9px!important}}
+
 </style>
 </head>
 <body>
@@ -4150,9 +4203,13 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
   <aside class="sidebar" id="sb">
     <div class="sb-brand" aria-label="VANTA Panel">
       <div class="sb-title">VANTA</div>
+      <button class="menu-toggle" id="menu-toggle" type="button" onclick="togglePanelMenu()" aria-expanded="false" aria-controls="panel-nav" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <span class="menu-dot"></span>
+      </button>
     </div>
 
-    <nav class="sb-nav" aria-label="Primary navigation">
+    <nav class="sb-nav" id="panel-nav" aria-label="Primary navigation">
       <button class="nav-item active" data-page="dashboard">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/></svg>
         <span class="nav-label" data-en="Dashboard" data-fa="داشبورد">Dashboard</span>
@@ -4745,9 +4802,33 @@ async function doLogout(){
   showLogin();
 }
 
+function togglePanelMenu(){
+  const sb=document.getElementById('sb');
+  const btn=document.getElementById('menu-toggle');
+  if(!sb)return;
+  const open=sb.classList.toggle('menu-open');
+  if(btn)btn.setAttribute('aria-expanded',open?'true':'false');
+}
+
 document.querySelectorAll('.nav-item[data-page]').forEach(el=>{
-  el.addEventListener('click',()=>switchPage(el.dataset.page));
+  el.addEventListener('click',()=>{
+    switchPage(el.dataset.page);
+    const sb=document.getElementById('sb');
+    const btn=document.getElementById('menu-toggle');
+    if(sb)sb.classList.remove('menu-open');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  });
 });
+document.addEventListener('click',e=>{
+  const sb=document.getElementById('sb');
+  if(!sb||!sb.classList.contains('menu-open'))return;
+  if(!sb.contains(e.target)){
+    sb.classList.remove('menu-open');
+    const btn=document.getElementById('menu-toggle');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  }
+});
+
 
 function switchPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
