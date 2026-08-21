@@ -2508,7 +2508,7 @@ def generate_landing_page(link: dict, uid: str, addresses: list[str]) -> str:
     <div class="sub-hero-head">
         <div>
             <div class="sub-eyebrow"><span class="sub-live-dot"></span> SECURE SUBSCRIPTION</div>
-            <div class="sub-brandline"><span class="brand-mark" aria-hidden="true">V</span><span class="header-title">VANTA</span></div>
+            <div class="sub-brandline"><span class="brand-mark" aria-hidden="true">VANTA</span><span class="header-title">VANTA</span></div>
             <div class="header-sub">{link['label']} · private access portal</div>
         </div>
         <div class="hero-chip">{status_text}</div>
@@ -4202,6 +4202,62 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
   #mo-add .mo-box{grid-template-columns:1fr;grid-template-areas:'title' 'remark' 'traffic' 'ips' 'days' 'vless' 'trojan' 'port' 'create';padding:18px!important}
 }
 
+        /* ===== VANTA UI OVERHAUL — dashboard + inbounds ===== */
+        .sidebar::before{{content:'VANTA';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-size:15px;font-weight:900;letter-spacing:5px;color:#fff;text-shadow:0 0 18px rgba(168,85,247,.45);pointer-events:none;z-index:0}}
+        .sb-brand,.sb-nav,.sb-bottom{{position:relative;z-index:1}}
+        #page-dashboard{{position:relative;overflow:hidden;padding:6px 0 18px}}
+        #page-dashboard::before{{content:'';position:absolute;inset:-90px -120px auto;height:360px;pointer-events:none;background:radial-gradient(circle at 50% 0%,rgba(168,85,247,.18),transparent 62%);z-index:-1}}
+        #page-dashboard .page-header{{padding:28px 30px 24px!important;margin-bottom:18px!important;border:1px solid rgba(168,85,247,.18);border-radius:24px;background:linear-gradient(135deg,rgba(25,12,46,.95),rgba(8,5,18,.88));box-shadow:0 22px 55px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05);position:relative;overflow:hidden}}
+        #page-dashboard .page-header::after{{content:'SYSTEM COMMAND CENTER';position:absolute;right:24px;bottom:18px;font-size:9px;font-weight:900;letter-spacing:3px;color:rgba(216,180,254,.34)}}
+        #page-dashboard .page-title{{font-size:32px!important;font-weight:900!important;letter-spacing:-.8px!important}}
+        #page-dashboard .page-sub{{margin-top:7px!important;color:rgba(216,180,254,.55)!important}}
+        #page-dashboard .alerts-box{{border:1px solid rgba(251,191,36,.16)!important;border-radius:18px!important;background:rgba(38,24,5,.32)!important;box-shadow:none!important;margin-bottom:18px!important}}
+        #page-dashboard .stats-row{{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;margin-bottom:16px!important}}
+        #page-dashboard .stat-card{{min-height:132px!important;padding:22px!important;border-radius:20px!important;border:1px solid rgba(168,85,247,.18)!important;background:linear-gradient(150deg,rgba(23,10,42,.96),rgba(8,5,18,.98))!important;box-shadow:0 16px 38px rgba(0,0,0,.28)!important;position:relative!important;overflow:hidden!important}}
+        #page-dashboard .stat-card::before{{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,#7c3aed,#c084fc,transparent)}}
+        #page-dashboard .stat-card::after{{content:'';position:absolute;width:90px;height:90px;right:-35px;bottom:-40px;border-radius:50%;background:rgba(168,85,247,.10);filter:blur(2px)}}
+        #page-dashboard .stat-label{{font-size:10px!important;letter-spacing:2px!important;color:rgba(216,180,254,.58)!important;text-transform:uppercase}}
+        #page-dashboard .stat-val{{font-size:30px!important;font-weight:900!important;margin-top:15px!important;letter-spacing:-1px!important;position:relative;z-index:1}}
+        #page-dashboard .stat-unit{{font-size:12px!important;color:rgba(255,255,255,.38)!important}}
+        #page-dashboard .grid-2{{gap:14px!important;margin-bottom:16px!important}}
+        #page-dashboard .grid-2 .card,#page-dashboard > .card{{min-height:126px!important;padding:22px!important;border-radius:20px!important;border:1px solid rgba(168,85,247,.16)!important;background:linear-gradient(145deg,rgba(20,9,37,.96),rgba(7,4,16,.98))!important;box-shadow:0 16px 40px rgba(0,0,0,.25)!important}}
+        #page-dashboard .card-hd{{margin-bottom:18px!important}}
+        #page-dashboard .card-title{{font-size:12px!important;letter-spacing:1.5px!important;text-transform:uppercase!important;color:#e9d5ff!important}}
+        #page-dashboard .sys-bar{{height:10px!important;border-radius:99px!important;background:rgba(168,85,247,.09)!important;overflow:hidden!important}}
+        #page-dashboard .sys-fill{{height:100%!important;border-radius:99px!important;box-shadow:0 0 18px rgba(168,85,247,.55)!important}}
+        #page-dashboard .chart-container{{height:300px!important;padding-top:8px!important}}
+
+        /* Inbounds: connection control deck */
+        #page-inbounds{{position:relative;overflow:hidden}}
+        #page-inbounds .page-header{{padding:24px 28px!important;margin-bottom:14px!important;border-radius:22px!important;background:linear-gradient(135deg,rgba(24,10,45,.98),rgba(8,4,18,.96))!important;border:1px solid rgba(168,85,247,.22)!important;box-shadow:0 20px 50px rgba(0,0,0,.24)!important}}
+        #page-inbounds .page-title{{font-size:30px!important;font-weight:900!important;letter-spacing:-.7px!important}}
+        #page-inbounds .page-sub{{margin-top:6px!important;color:rgba(216,180,254,.52)!important}}
+        #page-inbounds .page-header .btn-gold{{min-height:44px!important;padding:0 20px!important;border-radius:12px!important;background:linear-gradient(135deg,#7c3aed,#a855f7)!important;box-shadow:0 10px 25px rgba(124,58,237,.28)!important;border:1px solid rgba(216,180,254,.35)!important}}
+        #page-inbounds .inbound-toolbar-note{{margin:0 0 14px!important;padding:16px 20px!important;border-radius:18px!important;background:linear-gradient(90deg,rgba(124,58,237,.12),rgba(20,8,36,.82))!important;border:1px solid rgba(168,85,247,.16)!important;box-shadow:none!important}}
+        #page-inbounds .inbound-orb{{width:34px!important;height:34px!important;border-radius:12px!important;background:linear-gradient(135deg,#7c3aed,#c084fc)!important;box-shadow:0 0 22px rgba(168,85,247,.35)!important}}
+        #page-inbounds .inbound-toolbar-note b{{font-size:13px!important;letter-spacing:.2px!important}}
+        #page-inbounds .inbound-toolbar-note small{{color:rgba(255,255,255,.42)!important}}
+        #page-inbounds .tb{{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:12px!important;align-items:center!important;padding:10px!important;margin-bottom:14px!important;border:1px solid rgba(168,85,247,.16)!important;border-radius:18px!important;background:rgba(10,5,20,.74)!important}}
+        #page-inbounds .search-wrap{{height:46px!important;border-radius:12px!important;background:rgba(168,85,247,.055)!important;border-color:rgba(168,85,247,.16)!important}}
+        #page-inbounds .search-wrap input{{font-size:13px!important;color:#fff!important}}
+        #page-inbounds .filter-chips{{gap:6px!important}}
+        #page-inbounds .filter-chips .chip{{min-width:72px!important;height:38px!important;border-radius:10px!important;background:rgba(168,85,247,.05)!important;border-color:rgba(168,85,247,.15)!important}}
+        #page-inbounds .filter-chips .chip.active{{background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;border-color:rgba(216,180,254,.45)!important;box-shadow:0 7px 18px rgba(124,58,237,.22)!important}}
+        #page-inbounds > .card{{border-radius:20px!important;border:1px solid rgba(168,85,247,.18)!important;background:rgba(9,4,18,.88)!important;box-shadow:0 20px 55px rgba(0,0,0,.26)!important}}
+        #page-inbounds .tbl{{border-collapse:separate!important;border-spacing:0 7px!important;padding:0 10px!important}}
+        #page-inbounds .tbl thead th{{padding:13px 12px!important;border:0!important;color:rgba(216,180,254,.48)!important;font-size:9px!important;letter-spacing:1.8px!important;text-transform:uppercase!important}}
+        #page-inbounds .tbl tbody tr{{background:linear-gradient(90deg,rgba(168,85,247,.055),rgba(168,85,247,.018))!important;transition:transform .18s ease,box-shadow .18s ease!important}}
+        #page-inbounds .tbl tbody tr:hover{{transform:translateY(-1px)!important;box-shadow:0 10px 24px rgba(0,0,0,.24)!important}}
+        #page-inbounds .tbl tbody td{{padding:15px 12px!important;border-top:1px solid rgba(168,85,247,.10)!important;border-bottom:1px solid rgba(168,85,247,.10)!important;background:transparent!important}}
+        #page-inbounds .tbl tbody td:first-child{{border-left:1px solid rgba(168,85,247,.10)!important;border-radius:12px 0 0 12px!important}}
+        #page-inbounds .tbl tbody td:last-child{{border-right:1px solid rgba(168,85,247,.10)!important;border-radius:0 12px 12px 0!important}}
+        #page-inbounds .m-card{{background:linear-gradient(145deg,rgba(22,9,39,.96),rgba(8,4,18,.98))!important;border:1px solid rgba(168,85,247,.16)!important;border-radius:18px!important;box-shadow:0 14px 35px rgba(0,0,0,.25)!important}}
+
+        /* Subscription logo badge */
+        .sub-brandline .brand-mark{{width:auto!important;min-width:88px!important;height:36px!important;padding:0 13px!important;border-radius:10px!important;font-size:12px!important;letter-spacing:2.2px!important;font-weight:900!important;white-space:nowrap!important;box-shadow:0 0 24px rgba(168,85,247,.35)!important}}
+        @media(max-width:900px){{.sidebar::before{{display:none}}#page-dashboard .stats-row{{grid-template-columns:repeat(2,minmax(0,1fr))!important}}#page-inbounds .tb{{grid-template-columns:1fr!important}}}}
+        @media(max-width:600px){{#page-dashboard .page-header,#page-inbounds .page-header{{padding:20px!important}}#page-dashboard .page-title,#page-inbounds .page-title{{font-size:25px!important}}#page-dashboard .stats-row{{grid-template-columns:1fr!important}}#page-dashboard .chart-container{{height:230px!important}}#page-inbounds .tb{{padding:8px!important}}#page-inbounds .filter-chips{{justify-content:stretch!important}}#page-inbounds .filter-chips .chip{{flex:1!important}}}}
+
 </style>
 </head>
 <body>
@@ -4272,7 +4328,6 @@ body[dir="rtl"] .sidebar{left:auto!important;right:0!important}body[dir="rtl"] .
         </a>
       </div>
     </div>
-    <span style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:2px">VANTA</span>
   </div>
 
   <!-- TOP NAVIGATION -->
